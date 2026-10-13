@@ -16,12 +16,12 @@ pub fn desktop_snapshot() -> Vec<Surface> { enumerate() }
 
 #[cfg(target_os = "windows")]
 fn enumerate() -> Vec<Surface> {
-    use windows_sys::Win32::Foundation::{BOOL, HWND, LPARAM, RECT};
+    use windows_sys::Win32::Foundation::{HWND, LPARAM, RECT};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         EnumWindows, GetWindow, GetWindowRect, GetWindowThreadProcessId, IsIconic,
         IsWindowVisible, GW_OWNER,
     };
-    unsafe extern "system" fn walk(hwnd: HWND, value: LPARAM) -> BOOL {
+    unsafe extern "system" fn walk(hwnd: HWND, value: LPARAM) -> i32 {
         let output = unsafe { &mut *(value as *mut Vec<Surface>) };
         if unsafe { IsWindowVisible(hwnd) } == 0 || unsafe { IsIconic(hwnd) } != 0 { return 1; }
         if !unsafe { GetWindow(hwnd, GW_OWNER) }.is_null() { return 1; }

@@ -53,3 +53,26 @@ test('settings validation and limits', () => {
   e.step(1 / 60);
   assert.equal(e.snapshot().flakes.length, 0);
 });
+
+test('released snow falls and deposits on a lower surface', () => {
+  const e = new SnowEngine(300, 280, 7);
+  const upper = { id: 'upper', x: 30, y: 60, width: 130, height: 30, z: 3 };
+  const lower = { id: 'lower', x: 0, y: 170, width: 250, height: 40, z: 1 };
+  e.configure({ snowfall: 0, wind: 0 });
+  e.setSurfaces([upper, lower], 0);
+  e.deposit('upper', 80, 20);
+  e.setSurfaces([lower], 0.15);
+  for (let i = 0; i < 240; i++) e.step(1/60);
+  const bottom = e.snapshot().piles.find(p => p.surface.id === 'lower');
+  assert.ok(bottom && bottom.bins.some(value => value > 0), 'clumps must settle onto lower exposed window');
+});
+
+test('resizing surface remaps its existing accumulated snow', () => {
+  const e = new SnowEngine(300, 280);
+  e.setSurfaces([surfaces[0]], 0);
+  e.deposit('front', 70, 30);
+  const before = Math.max(...e.snapshot().piles[0].bins);
+  e.setSurfaces([{ ...surfaces[0], width: 210 }], 0.15);
+  const after = Math.max(...e.snapshot().piles[0].bins);
+  assert.ok(after > 0 && before > 0);
+});

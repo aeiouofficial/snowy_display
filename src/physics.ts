@@ -179,7 +179,7 @@ export class SnowEngine {
     if (!finite(dtSeconds) || dtSeconds <= 0) return;
     const dt = Math.min(1 / 30, dtSeconds);
     this.time += dt;
-    const rate = this.settings.snowfall * (12 + this.width * this.height / 8000);
+    const rate = this.settings.snowfall * (16 + this.width / 4.5);
     this.spawnRemainder += rate * dt;
     while (this.spawnRemainder >= 1) {
       this.spawnRemainder--;

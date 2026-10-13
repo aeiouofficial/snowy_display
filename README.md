@@ -27,7 +27,7 @@ npm run build      # Native desktop bundle
 npm run dev:web    # Browser-only settings and draggable physics preview
 ```
 
-When the desktop app starts it places transparent, non-focusable, click-through overlays over detected monitors. It keeps its settings window hidden and exposes it through **system tray > Show controls** to avoid interrupting active work. Overlay shutdown is through **system tray > Quit**. No new PowerShell/CMD windows are launched by the application.
+When the desktop app starts it places transparent, non-focusable, click-through overlays over detected monitors. It keeps its settings window hidden and exposes it through **system tray > Show controls** to avoid interrupting active work. Overlay shutdown is through **system tray > Quit**. No new PowerShell/CMD windows are launched by the packaged application. Development commands run in the terminal the developer already has open.
 
 ### Android / iOS future path
 
@@ -68,3 +68,23 @@ No screenshotting, screen recording, clipboard access, network/weather API, anal
 ## License
 
 MIT. See `LICENSE`.
+
+### Windows workspace-only toolchain caches
+
+The application does not create its own build caches on `C:`. Before development on a Windows PC with a strict no-C-write policy, initialize the **current existing terminal session** to keep all temporary files and tool caches inside your chosen project workspace on a non-C drive:
+
+```powershell
+$root = (Get-Location).Path
+if ((Split-Path -Qualifier $root) -eq 'C:') { throw 'Project must not reside on C:' }
+foreach ($dir in @('temp','npm-cache','cargo-home','rustup-home','gradle-home','android-user')) { New-Item -ItemType Directory -Force -Path (Join-Path $root ".workspace/$dir") | Out-Null }
+$env:TEMP = Join-Path $root '.workspace/temp'
+$env:TMP = $env:TEMP
+$env:TMPDIR = $env:TEMP
+$env:npm_config_cache = Join-Path $root '.workspace/npm-cache'
+$env:CARGO_HOME = Join-Path $root '.workspace/cargo-home'
+$env:RUSTUP_HOME = Join-Path $root '.workspace/rustup-home'
+$env:GRADLE_USER_HOME = Join-Path $root '.workspace/gradle-home'
+$env:ANDROID_USER_HOME = Join-Path $root '.workspace/android-user'
+```
+
+Use only previously provisioned toolchains inside those non-C paths; this does not relocate pre-existing Node, Rust, Android SDK, Windows OS temp services, or their installation paths. Set `ANDROID_HOME`/`ANDROID_NDK_HOME` to SDK locations outside `C:` as necessary. Do not launch an extra terminal merely to run this snippet.

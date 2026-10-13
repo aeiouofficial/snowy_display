@@ -9,7 +9,7 @@
 - [x] Transparent desktop overlay creation per monitor with click-through and tray controls.
 - [x] Native source adapters for Windows, macOS, and X11; Linux Wayland fallback degrades to floor only.
 - [x] Shared desktop/mobile UI and Android/iOS-specific Tauri config.
-- [x] Five deterministic physics regression tests.
+- [x] Seven deterministic physics regression tests.
 - [ ] Linux, macOS, Windows CI builds all pass.
 - [ ] Manual transparent window / click-through tests on each desktop OS.
 - [ ] Profile CPU/GPU memory, battery, multiple monitors, DPI mixing, hotplug, suspend/resume.
