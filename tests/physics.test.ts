@@ -1,0 +1,105 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { SnowEngine } from '../src/physics.ts';
+const surfaces = [
+  { id: 'front', x: 40, y: 60, width: 140, height: 80, z: 2 },
+  { id: 'back', x: 0, y: 100, width: 220, height: 80, z: 1 },
+];
+test('exposed edges respect z-order and occlusion', () => {
+  const e = new SnowEngine(250, 200);
+  e.setSurfaces(surfaces);
+  assert.equal(e.isExposed(surfaces[1], 80), false);
+  assert.equal(e.isExposed(surfaces[1], 15), true);
+  assert.equal(e.isExposed(surfaces[0], 80), true);
+  assert.equal(e.deposit('back', 80, 10), false);
+  assert.equal(e.deposit('back', 10, 10), true);
+});
+test('mass accumulates unevenly and is bounded by depth', () => {
+  const e = new SnowEngine(250, 200);
+  e.setSurfaces([surfaces[0]]);
+  e.deposit('front', 70, 20);
+  let bins = e.snapshot().piles[0].bins;
+  assert.ok(Math.max(...bins) > Math.min(...bins));
+  for (let i = 0; i < 1000; i++) e.deposit('front', 70, 100);
+  bins = e.snapshot().piles[0].bins;
+  assert.ok(bins.every(n => n >= 0 && n <= 34));
+});
+test('moving windows shed mass, closing windows drops piles', () => {
+  const e = new SnowEngine(500, 350);
+  e.setSurfaces([surfaces[0]], 0);
+  e.deposit('front', 70, 25);
+  const oldTotal = e.snapshot().piles[0].bins.reduce((a,b) => a+b,0);
+  e.setSurfaces([{ ...surfaces[0], x: 120 }], 0.1);
+  const newTotal = e.snapshot().piles[0].bins.reduce((a,b) => a+b,0);
+  assert.ok(newTotal < oldTotal);
+  assert.ok(e.snapshot().clumps.length > 0);
+  e.setSurfaces([], 0.2);
+  assert.equal(e.snapshot().piles.length, 0);
+});
+test('no snowmen, no NaNs, bounded particle count, deterministic seed', () => {
+  const a = new SnowEngine(480, 320, 123);
+  const b = new SnowEngine(480, 320, 123);
+  for (let i=0;i<200;i++) { a.step(1/60); b.step(1/60); }
+  assert.deepEqual(a.snapshot(), b.snapshot());
+  assert.ok(a.snapshot().flakes.length <= 1250);
+  assert.ok(a.snapshot().flakes.every(p => Number.isFinite(p.x+p.y+p.vx+p.vy)));
+});
+test('settings validation and limits', () => {
+  const e = new SnowEngine(100,100);
+  assert.throws(() => e.configure({ wind: Number.NaN }), RangeError);
+  e.configure({ maxDepth: 999, wind: -9, snowfall: 0 });
+  assert.equal(e.settings.maxDepth, 120);
+  assert.equal(e.settings.wind, -1);
+  e.step(1 / 60);
+  assert.equal(e.snapshot().flakes.length, 0);
+});
+
+test('released snow falls and deposits on a lower surface', () => {
+  const e = new SnowEngine(300, 280, 7);
+  const upper = { id: 'upper', x: 30, y: 60, width: 130, height: 30, z: 3 };
+  const lower = { id: 'lower', x: 0, y: 170, width: 250, height: 40, z: 1 };
+  e.configure({ snowfall: 0, wind: 0 });
+  e.setSurfaces([upper, lower], 0);
+  e.deposit('upper', 80, 20);
+  e.setSurfaces([lower], 0.15);
+  for (let i = 0; i < 240; i++) e.step(1/60);
+  const bottom = e.snapshot().piles.find(p => p.surface.id === 'lower');
+  assert.ok(bottom && bottom.bins.some(value => value > 0), 'clumps must settle onto lower exposed window');
+});
+
+test('resizing surface remaps its existing accumulated snow', () => {
+  const e = new SnowEngine(300, 280);
+  e.setSurfaces([surfaces[0]], 0);
+  e.deposit('front', 70, 30);
+  const before = Math.max(...e.snapshot().piles[0].bins);
+  e.setSurfaces([{ ...surfaces[0], width: 210 }], 0.15);
+  const after = Math.max(...e.snapshot().piles[0].bins);
+  assert.ok(after > 0 && before > 0);
+});
+
+
+test('a foreground window covering a snowy edge releases the hidden pile', () => {
+  const e = new SnowEngine(320, 260, 99);
+  const rear = { id: 'rear', x: 20, y: 120, width: 180, height: 80, z: 1 };
+  e.setSurfaces([rear], 0);
+  e.deposit('rear', 80, 35);
+  const before = e.snapshot().piles[0].bins.reduce((sum, n) => sum + n, 0);
+  const cover = { id: 'cover', x: 45, y: 55, width: 120, height: 105, z: 5 };
+  e.setSurfaces([rear, cover], 0.2);
+  const after = e.snapshot().piles.find(p => p.surface.id === 'rear')!.bins.reduce((sum, n) => sum + n, 0);
+  assert.ok(after < before);
+  assert.ok(e.snapshot().clumps.length > 0);
+});
+
+test('rapid repeated cover events cannot produce NaN or negative snow depths', () => {
+  const e = new SnowEngine(400, 250);
+  e.configure({ snowfall: 0 });
+  const back = { id: 'rear', x: 0, y: 140, width: 300, height: 65, z: 0 };
+  e.setSurfaces([back], 0);
+  for (let i = 0; i < 400; i++) {
+    e.deposit('rear', (i * 17) % 300, 12);
+    e.setSurfaces([back, { id: 'top', x: (i % 2) ? 100 : 0, y: 100, width: 150, height: 80, z: 1 }], i * .15 + .15);
+    e.step(1 / 30);
+  }
+  assert.ok(e.snapshot().piles.every(p => p.bins.every(b => Number.isFinite(b) && b >= 0 && b <= 34)));
+});
