@@ -160,3 +160,42 @@ test('downwind flakes that left the screen are discarded and do not consume the 
     assert.equal(downwindLeak.length, 0, `wind ${wind}: no flake may survive past the downwind edge`);
   }
 });
+
+test('mouse movement deflects nearby flakes', () => {
+  const e = new SnowEngine(400, 300, 10);
+  e.configure({ snowfall: 1.0 });
+  for (let i = 0; i < 30; i++) e.step(1 / 60);
+  const flakes = e.snapshot().flakes;
+  assert.ok(flakes.length > 5);
+  const target = flakes[0];
+  const initialVx = target.vx;
+  // Move mouse rapidly toward the flake
+  e.interactMouse(target.x - 10, target.y - 10, 0.5);
+  e.interactMouse(target.x - 2, target.y - 2, 0.516);
+  assert.notEqual(target.vx, initialVx, 'mouse swipe must alter flake velocity');
+});
+
+test('mouse sweeping across a snow pile reduces depth and drops clumps', () => {
+  const e = new SnowEngine(400, 300, 11);
+  const surface = { id: 'test-win', x: 50, y: 120, width: 200, height: 60, z: 1 };
+  e.setSurfaces([surface], 0);
+  e.deposit('test-win', 100, 30);
+  const pileBefore = e.snapshot().piles[0].bins.reduce((a, b) => a + b, 0);
+  assert.ok(pileBefore > 0);
+  // Sweep mouse over the pile
+  e.interactMouse(90, 118, 0.1);
+  e.interactMouse(110, 118, 0.13);
+  const pileAfter = e.snapshot().piles[0].bins.reduce((a, b) => a + b, 0);
+  assert.ok(pileAfter < pileBefore, 'mouse sweep must reduce pile depth');
+  assert.ok(e.snapshot().clumps.length > 0, 'mouse sweep must spawn falling clumps');
+});
+
+test('surfaces at or above top screen bezel (y <= 6) are filtered from accumulating snow', () => {
+  const e = new SnowEngine(400, 300, 12);
+  const topBezel = { id: 'top-frame', x: 0, y: 0, width: 400, height: 30, z: 1 };
+  const validWin = { id: 'mid-win', x: 50, y: 80, width: 200, height: 100, z: 2 };
+  e.setSurfaces([topBezel, validWin], 0);
+  const piles = e.snapshot().piles;
+  assert.equal(piles.length, 1);
+  assert.equal(piles[0].surface.id, 'mid-win', 'top bezel surface must be ignored');
+});

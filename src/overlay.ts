@@ -20,6 +20,16 @@ let canvasCleared = false;
 let lastFailureLog = 0;
 const ownWindow = getCurrentWindow();
 const monitorIsMac = navigator.userAgent.includes('Macintosh');
+let cachedOrigin = { x: 0, y: 0 };
+let cachedScale = 1;
+
+void listen<[number, number]>('cursor-move', event => {
+  const [globalX, globalY] = event.payload;
+  const localX = (globalX - cachedOrigin.x) / cachedScale;
+  const localY = (globalY - cachedOrigin.y) / cachedScale;
+  engine.interactMouse(localX, localY, performance.now() / 1000);
+});
+
 function bottom(): Surface {
   return { id: 'desktop-bottom', x: 0, y: innerHeight - 2, width: innerWidth, height: 5, z: -1000 };
 }
@@ -30,12 +40,14 @@ async function refreshSurfaces(): Promise<void> {
     const [rects, origin, scale] = await Promise.all([
       invoke<Surface[]>('desktop_snapshot'), ownWindow.outerPosition(), ownWindow.scaleFactor(),
     ]);
+    cachedOrigin = origin;
+    cachedScale = scale;
     // CGWindow bounds use macOS points. Win32 and X11 return physical pixels.
     const units = monitorIsMac ? 1 : scale;
     const mapped = rects.map(s => ({ ...s,
       x: s.x / units - origin.x / scale, y: s.y / units - origin.y / scale,
       width: s.width / units, height: s.height / units,
-    })).filter(s => s.x < innerWidth && s.x + s.width > 0 && s.y < innerHeight && s.y + s.height > 0);
+    })).filter(s => s.x < innerWidth && s.x + s.width > 0 && s.y < innerHeight && s.y + s.height > 0 && s.y > 6);
     // Keep rendering active across desktop and open windows
     isCoveredFullscreen = false;
     engine.setSurfaces([...mapped, bottom()], performance.now() / 1000);

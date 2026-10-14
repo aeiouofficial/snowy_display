@@ -12,6 +12,7 @@ export function drawSnow(ctx: CanvasRenderingContext2D, engine: SnowEngine, mask
   }
   for (const pile of scene.piles) {
     const { surface: s, bins } = pile;
+    if (s.y <= 6) continue;
     for (let i = 0; i < bins.length; ) {
       while (i < bins.length && (!engine.isExposed(s, s.x + (i + 0.5) * 7) || bins[i] < 0.09)) i++;
       if (i >= bins.length) break;

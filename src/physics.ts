@@ -19,6 +19,11 @@ export class SnowEngine {
   private spawnRemainder = 0;
   private time = 0;
   private previousSurfaceUpdate = 0;
+  private lastMouseX = -9999;
+  private lastMouseY = -9999;
+  private mouseVx = 0;
+  private mouseVy = 0;
+  private lastMouseTime = 0;
   public settings: Settings = { ...DEFAULT_SETTINGS };
   public width: number;
   public height: number;
@@ -49,7 +54,7 @@ export class SnowEngine {
   }
   /** Supply ALL visible windows, front-to-back or in any order, with stable IDs. */
   setSurfaces(surfaces: Surface[], atSeconds = this.time): void {
-    const clean = surfaces.filter(s => s.id && [s.x, s.y, s.width, s.height, s.z].every(finite) && s.width > 1 && s.height > 0);
+    const clean = surfaces.filter(s => s.id && [s.x, s.y, s.width, s.height, s.z].every(finite) && s.width > 1 && s.height > 0 && s.y > 6);
     const ordered = [...clean].sort((a, b) => b.z - a.z);
     const stepSeconds = Math.max(0.05, Math.min(2, atSeconds - this.previousSurfaceUpdate));
     for (const s of ordered) {
@@ -253,6 +258,89 @@ export class SnowEngine {
   snapshot(): { flakes: readonly Particle[]; clumps: readonly Particle[]; piles: Pile[]; surfaces: readonly Surface[] } {
     return { flakes: this.flakes, clumps: this.clumps, surfaces: this.surfaces,
       piles: Array.from(this.piles.values(), p => ({ surface: p.surface, bins: Array.from(p.bins) })) };
+  }
+  interactMouse(mouseX: number, mouseY: number, atSeconds = this.time): void {
+    if (!finite(mouseX) || !finite(mouseY)) return;
+    const dt = Math.max(0.008, Math.min(0.1, atSeconds - this.lastMouseTime));
+    if (this.lastMouseX > -9000) {
+      const instantVx = (mouseX - this.lastMouseX) / dt;
+      const instantVy = (mouseY - this.lastMouseY) / dt;
+      this.mouseVx = this.mouseVx * 0.4 + instantVx * 0.6;
+      this.mouseVy = this.mouseVy * 0.4 + instantVy * 0.6;
+    }
+    this.lastMouseX = mouseX;
+    this.lastMouseY = mouseY;
+    this.lastMouseTime = atSeconds;
+
+    const speed = Math.hypot(this.mouseVx, this.mouseVy);
+    const radius = Math.min(95, 42 + speed * 0.045);
+    const radiusSq = radius * radius;
+
+    // 1. Deflect and swirl falling flakes
+    for (const flake of this.flakes) {
+      const dx = flake.x - mouseX;
+      const dy = flake.y - mouseY;
+      const dSq = dx * dx + dy * dy;
+      if (dSq < radiusSq && dSq > 0.001) {
+        const dist = Math.sqrt(dSq);
+        const norm = 1 - dist / radius;
+        const pushMag = norm * norm * (120 + speed * 0.35);
+        flake.vx += (dx / dist) * pushMag;
+        flake.vy += (dy / dist) * pushMag;
+        flake.vx += this.mouseVx * norm * 0.35;
+        flake.vy += this.mouseVy * norm * 0.35;
+        const swirl = (this.mouseVx * (-dy) + this.mouseVy * dx) / (dist + 1);
+        flake.vx += (-dy / dist) * swirl * 0.15;
+        flake.vy += (dx / dist) * swirl * 0.15;
+      }
+    }
+
+    // 2. Deflect falling clumps
+    for (const clump of this.clumps) {
+      const dx = clump.x - mouseX;
+      const dy = clump.y - mouseY;
+      const dSq = dx * dx + dy * dy;
+      if (dSq < radiusSq * 0.7 && dSq > 0.001) {
+        const dist = Math.sqrt(dSq);
+        const norm = 1 - dist / (radius * 0.84);
+        clump.vx += (dx / dist) * norm * 80 + this.mouseVx * 0.2;
+        clump.vy += (dy / dist) * norm * 80 + this.mouseVy * 0.2;
+      }
+    }
+
+    // 3. Sweep and carve accumulated snow piles
+    for (const pile of this.piles.values()) {
+      const s = pile.surface;
+      if (mouseX >= s.x - 10 && mouseX <= s.x + s.width + 10 && Math.abs(mouseY - s.y) < 22) {
+        const centerBin = Math.floor((mouseX - s.x) / CELL);
+        const sweepRadius = Math.max(1, Math.ceil(radius / (CELL * 2.5)));
+        for (let b = Math.max(0, centerBin - sweepRadius); b <= Math.min(pile.bins.length - 1, centerBin + sweepRadius); b++) {
+          const binX = s.x + (b + 0.5) * CELL;
+          const dist = Math.abs(mouseX - binX);
+          if (dist < radius) {
+            const currentDepth = pile.bins[b];
+            if (currentDepth > 0.1) {
+              const removeFraction = Math.min(0.85, (1 - dist / radius) * 0.55 * (1.2 - this.settings.cohesion));
+              const removedMass = currentDepth * removeFraction;
+              if (removedMass > 0.2) {
+                pile.bins[b] = Math.max(0, currentDepth - removedMass);
+                if (this.clumps.length < MAX_CLUMPS) {
+                  this.clumps.push({
+                    x: binX,
+                    y: s.y - currentDepth * 0.8,
+                    vx: this.mouseVx * 0.25 + (this.rand() * 40 - 20),
+                    vy: Math.min(-10, this.mouseVy * 0.25) - this.rand() * 30,
+                    radius: 1.8 + this.rand() * 2.2,
+                    opacity: 0.85,
+                    mass: removedMass,
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
   clear(): void { this.flakes = []; this.clumps = []; this.piles.clear(); this.surfaces = []; this.spawnRemainder = 0; }
 }

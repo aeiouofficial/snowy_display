@@ -100,3 +100,10 @@ for (const el of scene.querySelectorAll<HTMLElement>('[data-window]')) {
   el.addEventListener('pointerup', () => { drag = null; });
   el.addEventListener('pointercancel', () => { drag = null; });
 }
+
+scene.addEventListener('pointermove', event => {
+  const b = scene.getBoundingClientRect();
+  const x = event.clientX - b.x;
+  const y = event.clientY - b.y;
+  engine.interactMouse(x, y, performance.now() / 1000);
+});

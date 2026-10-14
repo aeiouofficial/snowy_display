@@ -99,43 +99,20 @@ fn clear_desktop_snow(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
-fn desktop_overlays(app: &mut tauri::App) -> tauri::Result<()> {
-    use tauri::{Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
-    let main = app.get_webview_window("main").expect("main window configured");
-    main.show()?;
-    let _ = main.set_focus();
-    let main_clone = main.clone();
-    main.on_window_event(move |event| {
-        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-            api.prevent_close();
-            let _ = main_clone.hide();
-        }
-    });
+fn setup_tray_and_window(app: &mut tauri::App) -> tauri::Result<()> {
+    use tauri::Manager;
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.show();
+        let _ = main.set_focus();
+        let main_clone = main.clone();
+        main.on_window_event(move |event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = main_clone.hide();
+            }
+        });
+    }
 
-    // Wayland deliberately uses the in-app preview. Generic clients cannot reliably
-    // enumerate unrelated windows or guarantee global click-through surface layering.
-    let supported = !(cfg!(target_os = "linux") && std::env::var_os("WAYLAND_DISPLAY").is_some());
-    if !supported {
-        eprintln!("[snowy][warning] Wayland window tracking unavailable; opening safe in-app preview");
-        main.show()?;
-    }
-    if supported {
-    for (index, monitor) in main.available_monitors()?.iter().enumerate() {
-        let w = WebviewWindowBuilder::new(
-            app, format!("snow-overlay-{index}"), WebviewUrl::App("overlay.html".into()))
-            .title("Snowy Display Overlay")
-            .transparent(true).decorations(false).shadow(false)
-            .always_on_top(true).skip_taskbar(true)
-            .focused(false).focusable(false).visible(false).resizable(false)
-            .inner_size((monitor.size().width as f64) / monitor.scale_factor(),
-                        (monitor.size().height as f64) / monitor.scale_factor())
-            .build()?;
-        w.set_position(PhysicalPosition::new(monitor.position().x, monitor.position().y))?;
-        w.set_size(PhysicalSize::new(monitor.size().width, monitor.size().height))?;
-        w.set_ignore_cursor_events(true)?;
-        w.show()?;
-    }
-    }
     use tauri::{menu::{Menu, MenuItem}, tray::TrayIconBuilder};
     let show = MenuItem::with_id(app, "show", "Show controls", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Snowy Display", true, None::<&str>)?;
@@ -160,20 +137,122 @@ fn desktop_overlays(app: &mut tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn create_overlays(app: &tauri::AppHandle) {
+    use tauri::{Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
+
+    // Wayland deliberately uses the in-app preview.
+    let supported = !(cfg!(target_os = "linux") && std::env::var_os("WAYLAND_DISPLAY").is_some());
+    if !supported {
+        eprintln!("[snowy][warning] Wayland window tracking unavailable; in-app preview only");
+        return;
+    }
+
+    if let Some(main) = app.get_webview_window("main") {
+        if let Ok(monitors) = main.available_monitors() {
+            for (index, monitor) in monitors.iter().enumerate() {
+                let label = format!("snow-overlay-{index}");
+                if app.get_webview_window(&label).is_some() {
+                    continue;
+                }
+                let w = WebviewWindowBuilder::new(
+                    app, label, WebviewUrl::App("overlay.html".into()))
+                    .title("Snowy Display Overlay")
+                    .transparent(true).decorations(false).shadow(false)
+                    .always_on_top(true).skip_taskbar(true)
+                    .focused(false).focusable(false).visible(false).resizable(false)
+                    .inner_size((monitor.size().width as f64) / monitor.scale_factor(),
+                                (monitor.size().height as f64) / monitor.scale_factor())
+                    .build();
+                if let Ok(w) = w {
+                    let _ = w.set_position(PhysicalPosition::new(monitor.position().x, monitor.position().y));
+                    let _ = w.set_size(PhysicalSize::new(monitor.size().width, monitor.size().height));
+                    let _ = w.set_ignore_cursor_events(true);
+                    let _ = w.show();
+                }
+            }
+        }
+    }
+}
+
+#[tauri::command]
+fn get_cursor_position() -> Option<(f64, f64)> {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
+        use windows_sys::Win32::Foundation::POINT;
+        let mut pt = POINT { x: 0, y: 0 };
+        if GetCursorPos(&mut pt) != 0 {
+            return Some((pt.x as f64, pt.y as f64));
+        }
+    }
+    None
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn spawn_cursor_tracker(app: tauri::AppHandle) {
+    #[cfg(target_os = "windows")]
+    {
+        use tauri::Emitter;
+        std::thread::spawn(move || {
+            use std::time::Duration;
+            let mut last_x = -9999.0;
+            let mut last_y = -9999.0;
+            loop {
+                unsafe {
+                    use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
+                    use windows_sys::Win32::Foundation::POINT;
+                    let mut pt = POINT { x: 0, y: 0 };
+                    if GetCursorPos(&mut pt) != 0 {
+                        let x = pt.x as f64;
+                        let y = pt.y as f64;
+                        if (x - last_x).abs() >= 1.0 || (y - last_y).abs() >= 1.0 {
+                            last_x = x;
+                            last_y = y;
+                            let _ = app.emit("cursor-move", (x, y));
+                        }
+                    }
+                }
+                std::thread::sleep(Duration::from_millis(16));
+            }
+        });
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             window_geometry::desktop_snapshot,
             get_desktop_settings,
             save_desktop_settings,
-            clear_desktop_snow
+            clear_desktop_snow,
+            get_cursor_position
         ])
-        .setup(|_app| {
+        .setup(|app| {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
-            desktop_overlays(_app)?;
+            setup_tray_and_window(app)?;
             Ok(())
-        })
-        .run(tauri::generate_context!())
-        .expect("failed to run Snowy Display");
+        });
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        builder
+            .build(tauri::generate_context!())
+            .expect("failed to build Snowy Display")
+            .run(|app, event| {
+                if let tauri::RunEvent::Ready = event {
+                    create_overlays(app);
+                    spawn_cursor_tracker(app.clone());
+                }
+            });
+    }
+
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        builder
+            .run(tauri::generate_context!())
+            .expect("failed to run Snowy Display");
+    }
 }
+
