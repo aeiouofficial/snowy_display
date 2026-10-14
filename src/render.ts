@@ -18,10 +18,12 @@ export function drawSnow(ctx: CanvasRenderingContext2D, engine: SnowEngine, mask
       other.x < s.x + s.width && other.x + other.width > s.x &&
       other.y < s.y && other.y + other.height > s.y - 140);
     ctx.save();
-    if (higher.length) {
+    // Each exclusion needs its own clip intersection. One combined even-odd
+    // path XORs overlapping rectangles and exposes rear snow at intersections.
+    for (const other of higher) {
       ctx.beginPath();
       ctx.rect(0, 0, width, height);
-      for (const other of higher) ctx.rect(other.x, other.y, other.width, other.height);
+      ctx.rect(other.x, other.y, other.width, other.height);
       ctx.clip('evenodd');
     }
     if (s.y <= 6) { ctx.restore(); continue; }

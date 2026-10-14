@@ -11,7 +11,7 @@ No version has been tagged yet; everything below is unreleased alpha work on
 - **Occluded/minimized-window bleed**: deposits cannot spill into covered neighboring bins; new overlaps preserve hidden piles without creating ghost clumps; Win32 minimized windows are explicitly marked hidden and their snow is discarded without raining onto underlying windows. Rendering clips snow crests against foreground window rectangles.
 - **Settings startup race**: initial settings presentation no longer persists stale defaults to native storage or overwrites edits made before native settings finish loading.
 - **Overlay first-frame contract**: window is shown only after canvas drawing; explicit Tauri show permission retained.
-- Regression suite expanded to 27 tests (4 new occlusion tests; 2 overlay contract tests; 2 settings tests), all passing locally, with offline release-profile Cargo check passing. Real hardware QA remains a release blocker.
+- Regression suite expanded to 28 tests (5 occlusion tests; 2 overlay contract tests; 2 settings tests), all passing locally, with offline release-profile Cargo check passing. Real hardware QA remains a release blocker.
 
 ### Fixed
 - **Desktop shell windows treated as surfaces** (Windows `Progman`/`WorkerW`, X11 `_NET_WM_WINDOW_TYPE_DESKTOP`).

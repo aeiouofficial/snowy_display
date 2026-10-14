@@ -72,3 +72,36 @@ test('renderer clips underlying snow crests against a foreground window even abo
   assert.ok(records.some(r => r.name === 'clip' && r.args[0] === 'evenodd'),
     'snow piles (not falling flakes) must be clipped out of the foreground area');
 });
+
+test('intersecting foreground windows cannot toggle the rear snow mask back on', () => {
+  const e = new SnowEngine(300, 260);
+  e.configure({ snowfall: 0 });
+  const frontA = { id: 'frontA', x: 30, y: 95, width: 90, height: 43, z: 2 };
+  const frontB = { id: 'frontB', x: 50, y: 96, width: 90, height: 42, z: 3 };
+  e.setSurfaces([rear, frontA, frontB], 0);
+  e.deposit('rear', 60, 50);
+  const clipRectCounts: number[] = [];
+  let rectCount = 0;
+  const noop = () => {};
+  const gradient = { addColorStop: noop };
+  const ctx = {
+    clearRect: noop, save: noop, restore: noop, fill: noop, stroke: noop,
+    beginPath: () => { rectCount = 0; },
+    rect: () => { rectCount++; },
+    clip: () => { clipRectCounts.push(rectCount); },
+    arc: noop, translate: noop,
+    createLinearGradient: () => gradient,
+    createRadialGradient: () => gradient,
+  } as unknown as CanvasRenderingContext2D;
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'Path2D');
+  class MockPath { moveTo(){} lineTo(){} quadraticCurveTo(){} closePath(){} }
+  Object.defineProperty(globalThis, 'Path2D', { configurable: true, value: MockPath });
+  try { drawSnow(ctx, e, false); }
+  finally {
+    if (original) Object.defineProperty(globalThis, 'Path2D', original);
+    else Reflect.deleteProperty(globalThis, 'Path2D');
+  }
+  assert.ok(clipRectCounts.length >= 2, 'both overlapping foreground exclusions must be applied');
+  assert.ok(clipRectCounts.every(n => n === 2),
+    'each even-odd clip must have one outer rectangle and ONE exclusion, or intersections toggle back on');
+});

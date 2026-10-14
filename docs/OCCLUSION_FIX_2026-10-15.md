@@ -8,15 +8,15 @@
 
 ## Changes
 - `src/physics.ts`: extend Surface with optional `hidden`, ignore explicitly hidden surfaces, discard their piles without shedding. Preserve covered piles and block mass diffusion and cursor carving into covered bins. Preserve physical shed for actual closing/moving.
-- `src/render.ts`: exclude foreground window rectangles from pile drawing using even-odd canvas clipping. Particle rendering remains separate.
+- `src/render.ts`: exclude foreground window rectangles from pile drawing using sequential even-odd canvas clip intersections, not a single even-odd path (which XORs overlapping foreground rectangles). Particle rendering remains separate.
 - `src-tauri/src/window_geometry.rs`: send minimized Windows hwnd identifiers as `hidden: true`; leave normal surface serialization unchanged.
 - `src/overlay.ts`: propagate hidden surface events to the engine instead of filtering them out.
-- `tests/occlusion.test.ts`: four new tests; observed RED 0/4 and GREEN 4/4.
+- `tests/occlusion.test.ts`: five new tests; original RED 0/4 and GREEN 4/4, plus a second RED→GREEN test for intersecting foreground-window masks.
 - `tests/physics.test.ts`: replaced prior assertion requiring ghost snow on occlusion with preservation assertion.
 - `src/settings.ts`, `src/app.ts`, `tests/settings.test.ts`: startup settings hydration protects native settings from overwritten stale preview defaults.
 
 ## Fresh automated evidence
-- `npm run check`: 27 passed, 0 failed (2026-10-15).
+- `npm run check`: 28 passed, 0 failed (2026-10-15).
 - `npm run build:web`: exit 0 (2026-10-15).
 - `cargo check --release --offline --locked --manifest-path src-tauri/Cargo.toml`: exit 0 using installed toolchain cargo executable, S: target and offline Cargo cache. Rustup shim fails without a configured default under the portable workspace HOME; no global rustup state changed.
 - `.build/target/debug` deleted in previous cleanup, 5,218 regenerable files, 5.96 GB free space reclaimed; release and offline caches retained.
