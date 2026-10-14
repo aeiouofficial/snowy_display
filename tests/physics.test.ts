@@ -103,3 +103,41 @@ test('rapid repeated cover events cannot produce NaN or negative snow depths', (
   }
   assert.ok(e.snapshot().piles.every(p => p.bins.every(b => Number.isFinite(b) && b >= 0 && b <= 34)));
 });
+
+test('swept continuous collision catches fast particles without tunneling', () => {
+  const e = new SnowEngine(300, 300, 42);
+  const win = { id: 'win', x: 20, y: 150, width: 260, height: 80, z: 1 };
+  e.setSurfaces([win], 0);
+  e.configure({ snowfall: 0, wind: 0 });
+  e.step(1 / 60);
+  (e as any).clumps.push({ x: 100, y: 130, vx: 0, vy: 350, radius: 3, opacity: 0.9, mass: 2 });
+  for (let i = 0; i < 5; i++) e.step(1 / 30);
+  const pile = e.snapshot().piles.find(p => p.surface.id === 'win');
+  assert.ok(pile && pile.bins.some((b: number) => b > 0), 'fast moving particle must not tunnel through window edge');
+});
+
+test('clump impact on surface shatters into secondary micro-particles', () => {
+  const e = new SnowEngine(300, 300, 88);
+  const win = { id: 'target', x: 20, y: 160, width: 260, height: 80, z: 1 };
+  e.setSurfaces([win], 0);
+  e.configure({ snowfall: 0, wind: 0 });
+  (e as any).clumps.push({ x: 120, y: 155, vx: 0, vy: 120, radius: 4, opacity: 0.9, mass: 2.5 });
+  assert.equal(e.snapshot().flakes.length, 0);
+  for (let i = 0; i < 3; i++) e.step(1 / 30);
+  assert.ok(e.snapshot().flakes.length > 0, 'hard clump impact must spawn secondary micro-flakes');
+});
+
+test('granular settle algorithm redistributes slopes according to angle of repose', () => {
+  const e = new SnowEngine(200, 200, 1);
+  const win = { id: 'flat', x: 10, y: 100, width: 140, height: 50, z: 1 };
+  e.setSurfaces([win], 0);
+  e.configure({ snowfall: 0, cohesion: 0.2 });
+  e.deposit('flat', 70, 30);
+  const before = [...e.snapshot().piles[0].bins];
+  for (let i = 0; i < 60; i++) e.step(1 / 60);
+  const after = e.snapshot().piles[0].bins;
+  const centerIdx = Math.floor((70 - win.x) / 7);
+  assert.ok(after[centerIdx] < before[centerIdx], 'peak must slump downhill');
+  assert.ok(after[centerIdx - 1] > before[centerIdx - 1] || after[centerIdx + 1] > before[centerIdx + 1], 'flanks must gain mass from granular flow');
+});
+

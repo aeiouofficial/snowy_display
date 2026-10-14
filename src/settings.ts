@@ -23,3 +23,37 @@ export function saveSettings(value: AppSettings): void {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(value)); }
   catch (err) { console.warn('[snowy] could not persist settings', err); }
 }
+
+export async function fetchSettings(): Promise<AppSettings> {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const fromBackend = await invoke<AppSettings>('get_desktop_settings');
+    if (fromBackend && typeof fromBackend.snowfall === 'number') {
+      saveSettings(fromBackend);
+      return fromBackend;
+    }
+  } catch {
+    // Non-Tauri preview fallback
+  }
+  return loadSettings();
+}
+
+export async function broadcastSettings(value: AppSettings): Promise<void> {
+  saveSettings(value);
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('save_desktop_settings', { settings: value });
+  } catch {
+    // Web environment fallback
+  }
+}
+
+export async function broadcastClearSnow(): Promise<void> {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('clear_desktop_snow');
+  } catch {
+    // Web environment fallback
+  }
+}
+

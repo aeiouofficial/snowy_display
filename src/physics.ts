@@ -130,15 +130,22 @@ export class SnowEngine {
   private shed(pile: InternalPile, fraction: number, velocity: number): void {
     for (let i = 0; i < pile.bins.length; i++) this.releaseBin(pile, i, fraction, velocity);
   }
-  private hit(x: number, fromY: number, toY: number): InternalPile | null {
-    let candidate: InternalPile | null = null;
+  private hit(fromX: number, fromY: number, toX: number, toY: number): { pile: InternalPile; impactX: number } | null {
+    let candidate: { pile: InternalPile; impactX: number } | null = null;
     let highest = Infinity;
     for (const s of this.surfaces) {
       const pile = this.piles.get(s.id);
-      if (!pile || !this.isExposed(s, x)) continue;
+      if (!pile) continue;
+      const dy = toY - fromY;
+      const t = dy > 0.0001 ? clamp((s.y - fromY) / dy, 0, 1) : 1;
+      const x = fromX + t * (toX - fromX);
+      if (x < s.x || x >= s.x + s.width || !this.isExposed(s, x)) continue;
       const i = clamp(Math.floor((x - s.x) / CELL), 0, pile.bins.length - 1);
       const topY = s.y - pile.bins[i];
-      if (fromY <= topY && toY >= topY && topY < highest) { candidate = pile; highest = topY; }
+      if (fromY <= topY && toY >= topY && topY < highest) {
+        candidate = { pile, impactX: x };
+        highest = topY;
+      }
     }
     return candidate;
   }
@@ -146,6 +153,7 @@ export class SnowEngine {
     const wind = this.settings.wind * 60 + Math.sin(this.time * 0.58) * 17 + Math.sin(this.time * 1.9) * 8;
     for (let i = array.length - 1; i >= 0; i--) {
       const p = array[i];
+      const fromX = p.x;
       const fromY = p.y;
       const turbulence = Math.sin(this.time * 1.7 + p.x * 0.023 + p.y * 0.015) * 8;
       p.vx += ((wind + turbulence - p.vx) * (clump ? 0.23 : 0.75)) * dt;
@@ -154,12 +162,34 @@ export class SnowEngine {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       if (p.x < -45 || p.x > this.width + 45 || p.y > this.height + 22) { array.splice(i, 1); continue; }
-      const impact = this.hit(p.x, fromY, p.y);
-      if (impact) { this.deposit(impact.surface.id, p.x, p.mass); array.splice(i, 1); }
+      const impact = this.hit(fromX, fromY, p.x, p.y);
+      if (impact) {
+        if (clump && (p.mass > 1.3 || p.vy > 90) && this.flakes.length < MAX_FLAKES - 4) {
+          // Hard clump impact: deposit bulk mass, splatter secondary micro-flakes
+          this.deposit(impact.pile.surface.id, impact.impactX, p.mass * 0.74);
+          const splatters = Math.min(3, Math.max(1, Math.floor(p.mass * 1.4)));
+          for (let k = 0; k < splatters; k++) {
+            const spread = (this.rand() - 0.5) * 45;
+            this.flakes.push({
+              x: clamp(impact.impactX + (this.rand() - 0.5) * 5, 0, this.width),
+              y: impact.pile.surface.y - 1.5,
+              vx: spread + wind * 0.2,
+              vy: -12 - this.rand() * 18,
+              radius: 0.8 + this.rand() * 0.7,
+              opacity: 0.78,
+              mass: 0.08,
+            });
+          }
+        } else {
+          this.deposit(impact.pile.surface.id, impact.impactX, p.mass);
+        }
+        array.splice(i, 1);
+      }
     }
   }
   private settle(dt: number): void {
     const repose = 1.1 + this.settings.cohesion * 3.8;
+    const criticalSlab = this.settings.maxDepth * (0.7 + this.settings.cohesion * 0.3);
     for (const pile of this.piles.values()) {
       const b = pile.bins;
       for (let i = 0; i < b.length; i++) {
@@ -179,6 +209,19 @@ export class SnowEngine {
             x: pile.surface.x + i * CELL + CELL / 2, y: pile.surface.y - b[i],
             vx: (i === 0 ? -1 : 1) * (35 + this.rand() * 35), vy: 8,
             radius: 1.3 + amount, opacity: 0.95, mass: amount,
+          });
+        }
+        if (b[i] > criticalSlab && this.clumps.length < MAX_CLUMPS && this.rand() < dt * 0.3) {
+          const slab = Math.min(b[i] * 0.28, 3.2);
+          b[i] -= slab;
+          this.clumps.push({
+            x: pile.surface.x + i * CELL + CELL / 2,
+            y: pile.surface.y - b[i],
+            vx: (this.rand() - 0.5) * 36,
+            vy: 12 + this.rand() * 16,
+            radius: clamp(Math.sqrt(slab) * 1.6, 1.2, 7),
+            opacity: 0.94,
+            mass: slab * 0.75,
           });
         }
       }

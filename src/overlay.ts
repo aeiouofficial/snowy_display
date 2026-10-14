@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SnowEngine, type Surface } from './physics.ts';
 import { drawSnow, fitCanvas } from './render.ts';
-import { loadSettings, SETTINGS_EVENT, CLEAR_EVENT, type AppSettings } from './settings.ts';
+import { loadSettings, fetchSettings, SETTINGS_EVENT, CLEAR_EVENT, type AppSettings } from './settings.ts';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#snow');
 if (!canvas) throw new Error('snow overlay canvas missing');
@@ -11,6 +11,7 @@ let ctx = fitCanvas(canvas, innerWidth, innerHeight);
 const engine = new SnowEngine(innerWidth, innerHeight);
 let settings: AppSettings = loadSettings();
 engine.configure(settings);
+void fetchSettings().then(s => apply(s));
 let lastFrame = performance.now();
 let lastPoll = 0;
 let polling = false;

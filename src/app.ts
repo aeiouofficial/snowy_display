@@ -1,7 +1,6 @@
-import { emit } from '@tauri-apps/api/event';
 import { SnowEngine, type Surface } from './physics.ts';
 import { drawSnow, fitCanvas } from './render.ts';
-import { loadSettings, saveSettings, SETTINGS_EVENT, CLEAR_EVENT, type AppSettings } from './settings.ts';
+import { loadSettings, fetchSettings, broadcastSettings, broadcastClearSnow, type AppSettings } from './settings.ts';
 import './style.css';
 
 const target = document.querySelector<HTMLDivElement>('#app');
@@ -54,8 +53,7 @@ function update(): void {
     field.value = String(config[spec.key]);
     field.parentElement!.querySelector('output')!.textContent = spec.display(config[spec.key]);
   }
-  saveSettings(config);
-  void emit(SETTINGS_EVENT, config).catch(error => console.warn('[snowy] settings broadcast unavailable', error));
+  void broadcastSettings(config);
 }
 toggle.addEventListener('click', () => { config.enabled = !config.enabled; update(); });
 document.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', () => {
@@ -63,9 +61,10 @@ document.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', (
 });
 document.querySelector<HTMLButtonElement>('#clear')!.addEventListener('click', () => {
   engine.clear();
-  void emit(CLEAR_EVENT).catch(error => console.warn('[snowy] clear snow broadcast unavailable', error));
+  void broadcastClearSnow();
 });
 update();
+void fetchSettings().then(loaded => { config = loaded; update(); });
 let ctx: CanvasRenderingContext2D;
 const elementRects = () => Array.from(scene.querySelectorAll<HTMLElement>('[data-window]')).map((el, z) => {
   const a = el.getBoundingClientRect(), b = scene.getBoundingClientRect();

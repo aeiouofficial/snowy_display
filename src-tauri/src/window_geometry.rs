@@ -15,16 +15,44 @@ pub struct Surface {
 pub fn desktop_snapshot() -> Vec<Surface> { enumerate() }
 
 #[cfg(target_os = "windows")]
+unsafe fn is_cloaked(hwnd: windows_sys::Win32::Foundation::HWND) -> bool {
+    use windows_sys::Win32::Foundation::HMODULE;
+    extern "system" {
+        fn LoadLibraryA(lpLibFileName: *const u8) -> HMODULE;
+        fn GetProcAddress(hModule: HMODULE, lpProcName: *const u8) -> *const core::ffi::c_void;
+    }
+    type DwmGetWindowAttributeFn = unsafe extern "system" fn(
+        windows_sys::Win32::Foundation::HWND,
+        u32,
+        *mut core::ffi::c_void,
+        u32,
+    ) -> i32;
+    let dwm = LoadLibraryA(b"dwmapi.dll\0".as_ptr());
+    if dwm.is_null() { return false; }
+    let proc = GetProcAddress(dwm, b"DwmGetWindowAttribute\0".as_ptr());
+    if proc.is_null() { return false; }
+    let func: DwmGetWindowAttributeFn = core::mem::transmute(proc);
+    let mut cloaked: u32 = 0;
+    let res = func(hwnd, 14, &mut cloaked as *mut _ as *mut _, 4);
+    res == 0 && cloaked != 0
+}
+
+#[cfg(target_os = "windows")]
 fn enumerate() -> Vec<Surface> {
     use windows_sys::Win32::Foundation::{HWND, LPARAM, RECT};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, GetWindow, GetWindowRect, GetWindowThreadProcessId, IsIconic,
-        IsWindowVisible, GW_OWNER,
+        EnumWindows, GetWindow, GetWindowLongW, GetWindowRect, GetWindowThreadProcessId,
+        IsIconic, IsWindowVisible, GWL_EXSTYLE, GW_OWNER, WS_EX_TOOLWINDOW,
     };
     unsafe extern "system" fn walk(hwnd: HWND, value: LPARAM) -> i32 {
         let output = unsafe { &mut *(value as *mut Vec<Surface>) };
         if unsafe { IsWindowVisible(hwnd) } == 0 || unsafe { IsIconic(hwnd) } != 0 { return 1; }
         if !unsafe { GetWindow(hwnd, GW_OWNER) }.is_null() { return 1; }
+        // Skip toolwindows / floating palettes
+        let ex_style = unsafe { GetWindowLongW(hwnd, GWL_EXSTYLE) as u32 };
+        if (ex_style & WS_EX_TOOLWINDOW) != 0 { return 1; }
+        // Skip virtual-desktop hidden or cloaked DWM windows
+        if unsafe { is_cloaked(hwnd) } { return 1; }
         let mut pid: u32 = 0;
         unsafe { GetWindowThreadProcessId(hwnd, &mut pid); }
         if pid == std::process::id() { return 1; }
