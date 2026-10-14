@@ -9,13 +9,15 @@ Open-source snow accumulation on real desktop application windows. Snow builds u
 | Windows 10/11 | Yes | Win32 `EnumWindows` | Tauri transparent click-through overlay (unverified on Windows hardware) |
 | macOS | Yes | CoreGraphics window list | Tauri transparent click-through overlay (unverified on macOS hardware) |
 | Linux X11 | Yes | EWMH `_NET_CLIENT_LIST_STACKING` | Tauri transparent click-through overlay (unverified on Linux X11 hardware) |
-| Linux Wayland | App builds | **Blocked by compositor restrictions** | Only best-effort overlay; no cross-app geometry guaranteed |
+| Linux Wayland | App builds | **Blocked by compositor restrictions** | In-app preview only; no foreign-window overlays |
 | Android | Tauri 2 mobile source | Not yet | In-app snowfall preview; `SYSTEM_ALERT_WINDOW` integration not yet implemented |
 | iOS (future) | Tauri 2 mobile source | Not supported by sandbox | In-app effects only; no arbitrary system-wide overlay |
 
-**Status: alpha scaffold.** Physics tests pass locally; CI/platform native build and runtime verification still required. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only.
+**Status: alpha scaffold.** Windows TypeScript checks, 9/9 physics tests, and the Vite production build pass. The native Windows `cargo check --offline` also passes; Windows executable builds and runtime verification remain outstanding. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only.
 
 ## Develop
+
+**Windows workspace requirement (this project instance):** work only inside `S:\snowy_display`. Before running npm, Cargo or Python on Windows, call `scripts/project-env.cmd` from a background/hidden process. It routes temporary files, build artifacts, home directories and caches to `S:`, while accessing existing Rust compiler executables on `C:` read-only. On exFAT, run `python scripts/exfat_cargo_cache.py` before the first native Cargo build. See `docs/STATUS.md`.
 
 Prerequisites: Node.js >=22, Rust stable, Tauri 2 platform prerequisites ([official guide](https://v2.tauri.app/start/prerequisites/)), and native build dependencies. Linux requires GTK/WebKit2GTK and X11/XCB libraries; macOS requires Xcode Command Line Tools; Windows requires MSVC Build Tools and WebView2.
 
@@ -63,7 +65,7 @@ The Windows-only MIT project [todddube/wthrr_windows](https://github.com/todddub
 
 ## Safety and privacy
 
-No screenshotting, screen recording, clipboard access, network/weather API, analytics or telemetry. Window metadata only. No requested permissions on iOS/Android in the scaffold. Settings stored locally, no cloud accounts. No operation writes to Windows `C:` explicitly; native toolchains and OS runtimes can write to their own default paths unless their caches/temp directories are configured separately.
+No screenshotting, screen recording, clipboard access, network/weather API, analytics or telemetry. Window metadata only. No requested permissions on iOS/Android in the scaffold. Settings stored locally, no cloud accounts. Native build tools must use `scripts/project-env.cmd` on the Windows development machine so all project, temp and cache writes target `S:`. Third-party agent diagnostics are a separate tool-level concern.
 
 ## License
 

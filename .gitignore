@@ -9,5 +9,8 @@ src-tauri/gen/
 .env
 .idea/
 .vscode/
-
 .workspace/
+.tmp/
+.cache/
+.home/
+.build/
