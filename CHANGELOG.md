@@ -27,6 +27,8 @@ No version has been tagged yet; everything below is unreleased alpha work on
   (`OnceLock`) instead of twice per enumerated window on every 140 ms poll.
 - **Bare upwind region in wind**: flakes spawn across an upwind band proportional to wind strength and
   screen height, and the spawn rate scales with that band, so screen density is unchanged.
+- **Android APK build**: Added `"tauri": "tauri"` script to `package.json` (required by Gradle's
+  `rustBuild` task) and added `i686-linux-android` to installed Rust toolchain targets in `android-apk.yml`.
 
 ### Added
 - Window bounds from `DWMWA_EXTENDED_FRAME_BOUNDS`, removing the invisible resize/shadow border from
