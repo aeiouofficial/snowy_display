@@ -23,6 +23,18 @@ const monitorIsMac = navigator.userAgent.includes('Macintosh');
 let cachedOrigin = { x: 0, y: 0 };
 let cachedScale = 1;
 
+// Immediately initialize window origin and scale factor for crisp cursor mapping
+void Promise.all([ownWindow.outerPosition(), ownWindow.scaleFactor()]).then(([origin, scale]) => {
+  cachedOrigin = origin;
+  cachedScale = scale;
+  void invoke<[number, number] | null>('get_cursor_position').then(cursor => {
+    if (cursor) {
+      const [gx, gy] = cursor;
+      engine.interactMouse((gx - cachedOrigin.x) / cachedScale, (gy - cachedOrigin.y) / cachedScale, performance.now() / 1000);
+    }
+  }).catch(() => {});
+}).catch(() => {});
+
 void listen<[number, number]>('cursor-move', event => {
   const [globalX, globalY] = event.payload;
   const localX = (globalX - cachedOrigin.x) / cachedScale;

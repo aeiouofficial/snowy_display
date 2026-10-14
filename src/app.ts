@@ -17,6 +17,7 @@ target.innerHTML = `
     </section>
     <section class="controls" aria-label="Snow physics settings">
       <div class="section-title"><h2>Snow simulation</h2><button class="toggle" id="enabled" role="switch" aria-checked="true" aria-label="Toggle snowfall"><span></span></button></div>
+      <div class="preset-bar" id="presets"></div>
       <div id="sliders"></div>
       <div class="actions"><button id="reset" class="secondary">Restore defaults</button><button id="clear" class="secondary">Clear snow</button></div>
     </section>
@@ -27,6 +28,27 @@ const scene = document.querySelector<HTMLElement>('#scene')!;
 const canvas = document.querySelector<HTMLCanvasElement>('#preview')!;
 const engine = new SnowEngine(420, 300);
 let config: AppSettings = loadSettings();
+
+const PRESETS: Record<string, Partial<AppSettings>> = {
+  'Gentle Flurry': { snowfall: 0.35, wind: 0.05, gravity: 0.75, cohesion: 0.55, maxDepth: 20 },
+  'Arctic Blizzard': { snowfall: 0.95, wind: 0.75, gravity: 1.45, cohesion: 0.3, maxDepth: 48 },
+  'Mountain Gale': { snowfall: 0.7, wind: -0.85, gravity: 1.8, cohesion: 0.2, maxDepth: 28 },
+  'Quiet Frost': { snowfall: 0.2, wind: 0.0, gravity: 0.6, cohesion: 0.8, maxDepth: 16 },
+  'Deep Powder': { snowfall: 0.85, wind: 0.15, gravity: 1.1, cohesion: 0.7, maxDepth: 80 },
+};
+
+const presetContainer = document.querySelector<HTMLElement>('#presets')!;
+for (const [name, preset] of Object.entries(PRESETS)) {
+  const btn = document.createElement('button');
+  btn.className = 'preset-chip';
+  btn.textContent = name;
+  btn.addEventListener('click', () => {
+    config = { ...config, ...preset };
+    update();
+  });
+  presetContainer.appendChild(btn);
+}
+
 const specs = [
   { key: 'snowfall', label: 'Snowfall', min: 0, max: 1, step: .01, display: (n: number) => `${Math.round(n * 100)}%` },
   { key: 'wind', label: 'Wind direction', min: -1, max: 1, step: .01, display: (n: number) => (n > 0 ? '+' : '') + Math.round(n * 100) },
@@ -52,6 +74,11 @@ function update(): void {
     const field = document.querySelector<HTMLInputElement>(`#${spec.key}`)!;
     field.value = String(config[spec.key]);
     field.parentElement!.querySelector('output')!.textContent = spec.display(config[spec.key]);
+  }
+  for (const chip of Array.from(presetContainer.querySelectorAll<HTMLButtonElement>('.preset-chip'))) {
+    const p = PRESETS[chip.textContent || ''];
+    const active = p && Object.entries(p).every(([k, v]) => Math.abs((config as any)[k] - (v as number)) < 0.02);
+    chip.classList.toggle('active', !!active);
   }
   void broadcastSettings(config);
 }
@@ -107,3 +134,8 @@ scene.addEventListener('pointermove', event => {
   const y = event.clientY - b.y;
   engine.interactMouse(x, y, performance.now() / 1000);
 });
+
+scene.addEventListener('pointerleave', () => {
+  engine.interactMouse(-9999, -9999, performance.now() / 1000);
+});
+

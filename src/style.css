@@ -301,6 +301,42 @@ button {
   background: #94a3b8;
 }
 
+/* Presets */
+.preset-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+  scrollbar-width: thin;
+}
+
+.preset-chip {
+  flex-shrink: 0;
+  background: rgba(18, 30, 48, 0.7);
+  border: 1px solid var(--border-subtle);
+  color: #94a3b8;
+  border-radius: 20px;
+  padding: 6px 13px;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.preset-chip:hover {
+  background: rgba(30, 48, 76, 0.85);
+  border-color: var(--border-highlight);
+  color: #f1f5f9;
+}
+
+.preset-chip.active {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-weight: 600;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+}
+
 /* Range Sliders */
 .control-row {
   display: grid;

@@ -199,3 +199,44 @@ test('surfaces at or above top screen bezel (y <= 6) are filtered from accumulat
   assert.equal(piles.length, 1);
   assert.equal(piles[0].surface.id, 'mid-win', 'top bezel surface must be ignored');
 });
+
+test('high-speed swept mouse stroke deflects particles along entire trajectory without tunneling', () => {
+  const e = new SnowEngine(500, 400, 33);
+  e.configure({ snowfall: 0, wind: 0 });
+  // Manually insert three flakes: one near start, one at midpoint, one near end
+  (e as any).flakes.push(
+    { x: 100, y: 150, vx: 0, vy: 20, radius: 2, opacity: 0.9, mass: 1 },
+    { x: 250, y: 150, vx: 0, vy: 20, radius: 2, opacity: 0.9, mass: 1 },
+    { x: 400, y: 150, vx: 0, vy: 20, radius: 2, opacity: 0.9, mass: 1 }
+  );
+
+  // Fast mouse flick from x=50 to x=450 crossing y=150 in one step
+  e.interactMouse(50, 150, 0.1);
+  e.interactMouse(450, 150, 0.116);
+
+  const flakes = e.snapshot().flakes;
+  assert.equal(flakes.length, 3);
+  // All three flakes, especially the midpoint at x=250, must have been deflected by the swept segment!
+  assert.ok(Math.abs(flakes[0].vx) > 5 || Math.abs(flakes[0].vy - 20) > 5, 'start flake must be deflected');
+  assert.ok(Math.abs(flakes[1].vx) > 10 || Math.abs(flakes[1].vy - 20) > 10, 'midpoint flake must be deflected without tunneling');
+  assert.ok(Math.abs(flakes[2].vx) > 5 || Math.abs(flakes[2].vy - 20) > 5, 'end flake must be deflected');
+});
+
+test('stationary mouse continuously deflects falling flakes in step()', () => {
+  const e = new SnowEngine(400, 400, 44);
+  e.configure({ snowfall: 0, wind: 0 });
+  // Place a flake directly above the stationary mouse
+  (e as any).flakes.push({ x: 200, y: 180, vx: 0, vy: 30, radius: 2, opacity: 0.9, mass: 1 });
+  // Place mouse at (200, 205)
+  e.interactMouse(200, 205, 0.1);
+
+  // Step the simulation while mouse is stationary
+  e.step(1 / 60);
+  e.step(1 / 60);
+
+  const flake = e.snapshot().flakes[0];
+  assert.ok(flake, 'flake must remain alive');
+  // Flake directly above mouse must be deflected laterally by aerodynamic bow wave (vx != 0)
+  assert.ok(Math.abs(flake.vx) > 1.0, `stationary cursor must deflect falling flakes laterally (vx: ${flake.vx})`);
+});
+
