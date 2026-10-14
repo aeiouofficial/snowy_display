@@ -15,7 +15,7 @@
 - Node.js v22.16.0, npm v10.9.2 and Git 2.54: available.
 - `npm install`: PASS (20 packages installed, local cache on `S:`).
 - `npm run check`: PASS (TypeScript check and 9/9 deterministic physics tests).
-- `npm run build:web`: PASS (Vite 7.3.7, both entry points bundled).
+- `npm run build:web`: PASS (Vite 7.3.7, both entry points bundled). Local HTTP smoke: /, /overlay.html and overlay JS return 200 OK.
 - Rust 1.95.0 compiler and Cargo tools: already installed on C (read-only executable usage).
 - Native `cargo check --offline`: PASS (exit code 0, 5m31s, Rust 1.95.0), with all build outputs on `S:`.
 - exFAT workaround: `scripts/exfat_cargo_cache.py` validated and materialized 412/412 SHA256-verified crates on `S:`, 0 failures; avoids unsupported old mtimes.
@@ -34,13 +34,18 @@ Do not use RDC `node:local` since its implementation writes helper scripts on C.
 When using RDC subprocesses, it must use `windowsHide: true`; never foreground a
 terminal or interrupt the user's typing. Other platform builds use their own workspaces.
 
+## Cross-platform CI
+
+- GitHub Actions run 38489148562: frontend, Windows 2022, Ubuntu 24.04, macOS 14: 4/4 PASS.
+- First CI attempt was red on Linux/macOS because icon.png used indexed PNG mode. Fixed: RGBA 512x512 in commit 0e403d9.
+
 ## Platform requirements and gaps
 
-- Windows: native `cargo check` passes; final binary build, live overlay, tray, click-through, z-order and mixed DPI still require physical acceptance tests.
-- Linux X11: CI build and manual verification outstanding.
+- Windows: local native `cargo check` and Windows 2022 CI native `cargo check` PASS; final binary build, live overlay, tray, click-through, z-order and mixed DPI require physical tests.
+- Linux X11: GitHub Actions Ubuntu 24.04 native `cargo check` PASS; live overlay and X11 runtime not verified.
 - Linux Wayland: external-window geometry intentionally unavailable; preview fallback only.
-- macOS: native build and CoreGraphics window tracking unverified.
-- Android: APK toolchain/build unverified; system-wide other-app overlay service not implemented; in-app preview only.
+- macOS: GitHub Actions macOS 14 native `cargo check` PASS; executable linking, overlay and CoreGraphics runtime still unverified.
+- Android: auto CI job configured for feature-branch push to build unsigned APK; results pending. System-wide other-app overlay service not implemented; in-app preview only.
 - iOS: future in-app preview only; system-wide overlay forbidden by sandbox.
 - Visual snow physics is an approximation; realism must be tested on real windows under motion and wind.
 - No installers/desktop-native release artifacts are considered validated until corresponding CI and runtime tests pass.

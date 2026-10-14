@@ -13,6 +13,8 @@ Open-source snow accumulation on real desktop application windows. Snow builds u
 | Android | Tauri 2 mobile source | Not yet | In-app snowfall preview; `SYSTEM_ALERT_WINDOW` integration not yet implemented |
 | iOS (future) | Tauri 2 mobile source | Not supported by sandbox | In-app effects only; no arbitrary system-wide overlay |
 
+**CI: frontend and Windows/Linux/macOS native cargo checks pass (4/4).** Android APK builds run on feature-branch source changes or via manual workflow dispatch; still unverified until an artifact is produced.
+
 **Status: alpha scaffold.** Windows TypeScript checks, 9/9 physics tests, and the Vite production build pass. The native Windows `cargo check --offline` also passes; Windows executable builds and runtime verification remain outstanding. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only.
 
 ## Develop
