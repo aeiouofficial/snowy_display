@@ -102,7 +102,11 @@ export class SnowEngine {
   }
   private flake(): Particle {
     const radius = 0.65 + this.rand() * 2.15;
-    return { x: this.rand() * (this.width + 32) - 16, y: -8 - this.rand() * 55,
+    const windSpan = this.settings.wind * Math.max(120, this.height * 0.75);
+    const minX = windSpan > 0 ? -windSpan - 16 : -16;
+    const maxX = windSpan < 0 ? this.width - windSpan + 16 : this.width + 16;
+    const span = maxX - minX;
+    return { x: minX + this.rand() * span, y: -8 - this.rand() * 55,
       vx: this.rand() * 18 - 9, vy: 21 + this.rand() * 34, radius,
       opacity: 0.45 + this.rand() * 0.5, mass: 0.4 + radius * 0.25 };
   }
@@ -151,6 +155,9 @@ export class SnowEngine {
   }
   private updateParticles(array: Particle[], dt: number, clump: boolean): void {
     const wind = this.settings.wind * 60 + Math.sin(this.time * 0.58) * 17 + Math.sin(this.time * 1.9) * 8;
+    const windSpan = Math.abs(this.settings.wind) * Math.max(120, this.height * 0.75);
+    const minBound = -windSpan - 45;
+    const maxBound = this.width + windSpan + 45;
     for (let i = array.length - 1; i >= 0; i--) {
       const p = array[i];
       const fromX = p.x;
@@ -161,7 +168,7 @@ export class SnowEngine {
       p.vy = Math.min(p.vy, clump ? 430 : 90 * this.settings.gravity);
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      if (p.x < -45 || p.x > this.width + 45 || p.y > this.height + 22) { array.splice(i, 1); continue; }
+      if (p.x < minBound || p.x > maxBound || p.y > this.height + 22) { array.splice(i, 1); continue; }
       const impact = this.hit(fromX, fromY, p.x, p.y);
       if (impact) {
         if (clump && (p.mass > 1.3 || p.vy > 90) && this.flakes.length < MAX_FLAKES - 4) {
@@ -231,7 +238,8 @@ export class SnowEngine {
     if (!finite(dtSeconds) || dtSeconds <= 0) return;
     const dt = Math.min(1 / 30, dtSeconds);
     this.time += dt;
-    const rate = this.settings.snowfall * (16 + this.width / 4.5);
+    const windSpan = Math.abs(this.settings.wind) * Math.max(120, this.height * 0.75);
+    const rate = this.settings.snowfall * (16 + (this.width + windSpan) / 4.5);
     this.spawnRemainder += rate * dt;
     while (this.spawnRemainder >= 1) {
       this.spawnRemainder--;

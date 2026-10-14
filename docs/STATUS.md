@@ -14,13 +14,15 @@
 - Git checkout on `S:`: PASS (synchronized with upstream branch `feat/cross-platform-snow-physics-alpha`).
 - Node.js v22.16.0, npm v10.9.2 and Git 2.54: available.
 - `npm install`: PASS (local cache on `S:`).
-- `npm run check`: PASS (TypeScript check and 12/12 deterministic physics tests, including continuous swept collision, secondary clump shatter, and granular angle of repose).
-- `npm run build:web`: PASS (Vite 7.3.7, both entry points bundled in 884ms).
-- Rust 1.95.0 compiler: native `cargo check --offline`: PASS (exit code 0, 6.75s) with build outputs on `S:`.
-- DWM cloaking & toolwindow filter: Win32 `EnumWindows` dynamically checks `DwmGetWindowAttribute(DWMWA_CLOAKED)` and `GWL_EXSTYLE(WS_EX_TOOLWINDOW)` to exclude inactive virtual desktops and floating utility palettes.
+- `npm run check`: PASS (TypeScript check and 13/13 deterministic physics tests, including continuous swept collision, secondary clump shatter, granular angle of repose, and wind luv-compensation).
+- `npm run build:web`: PASS (Vite 7.3.7, both entry points bundled cleanly into `dist/`).
+- Rust 1.95.0 compiler: native `cargo check --offline`: PASS (exit code 0) with build outputs on `S:`.
+- DWM API performance: `std::sync::OnceLock` statically caches dynamic function pointers, avoiding ~7,000 loader lock calls/sec.
+- DWM bounds & filtering: `DWMWA_EXTENDED_FRAME_BOUNDS` strips 7-8px Aero drop shadows; `DWMWA_CLOAKED` and `WS_EX_TOOLWINDOW` exclude inactive virtual desktops and floating utility palettes.
 - Main window lifecycle: `WindowEvent::CloseRequested` is intercepted to prevent window destruction; clicking 'X' safely hides the controls window while keeping overlays and tray icon active.
-- Settings backend: native `get_desktop_settings`, `save_desktop_settings`, `clear_desktop_snow` IPC commands with config file persistence and cross-webview event broadcasts.
-- Production rendering: smooth spline snowdrifts, dual-layer ambient base shadow, crystalline crest highlights, multi-lobed clumps, and atmospheric flake halos.
+- Settings backend: native `get_desktop_settings`, `save_desktop_settings`, `clear_desktop_snow` IPC commands with atomic `.tmp` file write and rename for crash-safe config persistence.
+- Fullscreen battery saver: automated detection of full-screen occluding applications ($\ge 98\%$ coverage) pauses rendering and physics sub-stepping.
+- Production rendering: smooth spline snowdrifts, dual-layer ambient base shadow, crystalline crest highlights, multi-lobed clumps without chord artifacts, and atmospheric flake halos.
 
 ## Windows workspace policy
 
@@ -38,7 +40,8 @@ terminal or interrupt the user's typing. Other platform builds use their own wor
 
 ## Cross-platform CI
 
-- GitHub Actions run 38489148562: frontend, Windows 2022, Ubuntu 24.04, macOS 14: 4/4 PASS.
+- GitHub Actions workflow hardened with `npm ci` for deterministic package resolution.
+- Multi-platform matrix: frontend, Windows 2022, Ubuntu 24.04, macOS 14.
 - Android APK workflow: `.github/workflows/android-apk.yml` automated for feature-branch pushes.
 
 ## Platform requirements and gaps
@@ -52,10 +55,12 @@ terminal or interrupt the user's typing. Other platform builds use their own wor
 
 ## Next gates
 
-1. DONE: SHA-verified exFAT crate cache hydration (412/412); `cargo check --offline` on Windows passes (6.75s).
-2. DONE: Enhanced physics engine with continuous swept collision, clump shattering, granular flow, and avalanche slabs (12/12 tests PASS).
-3. DONE: Enhanced rendering with Bezier spline drifts, ambient grounding shadow, and multi-lobed clumps.
-4. DONE: Cloaked window & toolwindow filtering in Win32 `window_geometry.rs`.
-5. DONE: Close prevention on main window and native settings persistence.
-6. Commit updates to `feat/cross-platform-snow-physics-alpha` and push to GitHub.
-7. Trigger and monitor cross-platform CI and Android APK build.
+1. DONE: SHA-verified exFAT crate cache hydration (412/412); `cargo check --offline` on Windows passes.
+2. DONE: Enhanced physics engine with continuous swept collision, clump shattering, granular flow, avalanche slabs, and wind luv-compensation (13/13 tests PASS).
+3. DONE: Enhanced rendering with Bezier spline drifts, ambient grounding shadow, and chord-free multi-lobed clumps.
+4. DONE: Cloaked window & toolwindow filtering with Aero shadow stripping in Win32 `window_geometry.rs`.
+5. DONE: Static OnceLock DWM function pointer caching.
+6. DONE: Close prevention on main window and atomic settings persistence.
+7. DONE: Fullscreen battery saver with auto-pausing.
+8. Commit updates to `feat/cross-platform-snow-physics-alpha` and push to GitHub.
+9. Trigger and monitor cross-platform CI and Android APK build.

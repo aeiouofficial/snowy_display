@@ -45,8 +45,11 @@ function drawClump(ctx: CanvasRenderingContext2D, p: Particle): void {
   ctx.fillStyle = `rgba(246, 252, 255, ${p.opacity.toFixed(2)})`;
   ctx.beginPath();
   ctx.arc(0, 0, r * 0.85, 0, Math.PI * 2);
+  ctx.moveTo(-r * 0.35 + r * 0.52, -r * 0.22);
   ctx.arc(-r * 0.35, -r * 0.22, r * 0.52, 0, Math.PI * 2);
+  ctx.moveTo(r * 0.33 + r * 0.5, -r * 0.18);
   ctx.arc(r * 0.33, -r * 0.18, r * 0.5, 0, Math.PI * 2);
+  ctx.moveTo(r * 0.48, r * 0.3);
   ctx.arc(0, r * 0.3, r * 0.48, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();

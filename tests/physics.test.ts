@@ -141,3 +141,11 @@ test('granular settle algorithm redistributes slopes according to angle of repos
   assert.ok(after[centerIdx - 1] > before[centerIdx - 1] || after[centerIdx + 1] > before[centerIdx + 1], 'flanks must gain mass from granular flow');
 });
 
+test('wind compensation spawns flakes upwind and maintains full screen coverage', () => {
+  const e = new SnowEngine(400, 300, 77);
+  e.configure({ wind: 0.8, snowfall: 1.0 });
+  for (let i = 0; i < 60; i++) e.step(1 / 60);
+  const flakes = e.snapshot().flakes;
+  assert.ok(flakes.some(p => p.x < 0), 'flakes must spawn upwind to prevent windward coverage void');
+  assert.ok(flakes.some(p => p.x >= 0 && p.x <= 100), 'windward screen region must not be bare');
+});

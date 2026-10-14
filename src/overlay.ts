@@ -15,6 +15,7 @@ void fetchSettings().then(s => apply(s));
 let lastFrame = performance.now();
 let lastPoll = 0;
 let polling = false;
+let isCoveredFullscreen = false;
 let lastFailureLog = 0;
 const ownWindow = getCurrentWindow();
 const monitorIsMac = navigator.userAgent.includes('Macintosh');
@@ -34,8 +35,10 @@ async function refreshSurfaces(): Promise<void> {
       x: s.x / units - origin.x / scale, y: s.y / units - origin.y / scale,
       width: s.width / units, height: s.height / units,
     })).filter(s => s.x < innerWidth && s.x + s.width > 0 && s.y < innerHeight && s.y + s.height > 0);
+    isCoveredFullscreen = mapped.some(s => s.x <= 2 && s.y <= 2 && (s.x + s.width) >= innerWidth - 2 && (s.y + s.height) >= innerHeight - 2);
     engine.setSurfaces([...mapped, bottom()], performance.now() / 1000);
   } catch (error) {
+    isCoveredFullscreen = false;
     if (performance.now() - lastFailureLog > 30_000) {
       console.warn('[snowy] geometry refresh failed; using desktop surface', error);
       lastFailureLog = performance.now();
@@ -47,7 +50,7 @@ function frame(now: number): void {
   const elapsed = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
   if (now - lastPoll > 140) { lastPoll = now; void refreshSurfaces(); }
-  if (settings.enabled) {
+  if (settings.enabled && !isCoveredFullscreen) {
     // Fixed timestep with bounded catch-up, maintaining stable integration on slow screens.
     const substeps = Math.min(4, Math.max(1, Math.ceil(elapsed / (1 / 60))));
     for (let i = 0; i < substeps; i++) engine.step(elapsed / substeps);

@@ -46,7 +46,15 @@ fn save_desktop_settings(app: tauri::AppHandle, settings: AppSettings) -> Result
     if let Ok(config_dir) = app.path().app_config_dir() {
         let _ = std::fs::create_dir_all(&config_dir);
         let path = config_dir.join("settings.json");
-        let _ = std::fs::write(path, serde_json::to_string_pretty(&settings).unwrap_or_default());
+        let tmp_path = config_dir.join("settings.json.tmp");
+        if let Ok(payload) = serde_json::to_string_pretty(&settings) {
+            if std::fs::write(&tmp_path, payload.as_bytes()).is_ok() {
+                if std::fs::rename(&tmp_path, &path).is_err() {
+                    let _ = std::fs::write(&path, payload.as_bytes());
+                    let _ = std::fs::remove_file(&tmp_path);
+                }
+            }
+        }
     }
     let _ = app.emit("snowy-display:settings", &settings);
     Ok(())

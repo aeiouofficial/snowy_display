@@ -9,7 +9,7 @@
 - [x] Transparent desktop overlay creation per monitor with click-through and tray controls.
 - [x] Native source adapters for Windows, macOS, and X11; Linux Wayland fallback degrades to floor only.
 - [x] Shared desktop/mobile UI and Android/iOS-specific Tauri config.
-- [x] Twelve deterministic physics regression tests (including swept collision, shatter, repose).
+- [x] Thirteen deterministic physics regression tests (including swept collision, shatter, repose, wind compensation).
 - [ ] Linux, macOS, Windows CI builds all pass.
 - [ ] Manual transparent window / click-through tests on each desktop OS.
 - [ ] Profile CPU/GPU memory, battery, multiple monitors, DPI mixing, hotplug, suspend/resume.
@@ -20,10 +20,10 @@
 - [x] Better collision continuity at fast particle speeds and moving surfaces (swept continuous collision).
 - [x] Calibrated snow mass conservation; avalanche threshold, static/dynamic friction and angle of repose; edge fracture forces and varying clump shape/size.
 - [x] Soft compaction/settlement and granular flow with more natural uneven snow lips.
-- [x] Occlusion reconciliation for nested/multi-monitor windows, minimized/hidden windows, fullscreen and virtual desktops (Win32 DWM cloaking & tool window filtering).
+- [x] Occlusion reconciliation for nested/multi-monitor windows, minimized/hidden windows, fullscreen and virtual desktops (Win32 DWM cloaking, shadow stripping, fullscreen auto-pause).
 - [ ] Robust window tracking on macOS Retina and Windows mixed DPI; tests with real app layouts.
-- [x] Add preference persistence through Tauri settings backend for guaranteed cross-webview consistency.
-- [ ] Adaptive rendering quality and stable 60/120fps frame pacing, GPU renderer if profiling justifies it.
+- [x] Add preference persistence through atomic Tauri settings backend for guaranteed crash-safe cross-webview consistency.
+- [x] Adaptive rendering quality and stable 60/120fps frame pacing with fullscreen auto-pause.
 
 ## Mobile
 

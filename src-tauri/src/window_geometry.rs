@@ -15,26 +15,61 @@ pub struct Surface {
 pub fn desktop_snapshot() -> Vec<Surface> { enumerate() }
 
 #[cfg(target_os = "windows")]
-unsafe fn is_cloaked(hwnd: windows_sys::Win32::Foundation::HWND) -> bool {
-    use windows_sys::Win32::Foundation::HMODULE;
-    extern "system" {
-        fn LoadLibraryA(lpLibFileName: *const u8) -> HMODULE;
-        fn GetProcAddress(hModule: HMODULE, lpProcName: *const u8) -> *const core::ffi::c_void;
-    }
-    type DwmGetWindowAttributeFn = unsafe extern "system" fn(
+#[derive(Clone, Copy)]
+struct DwmApi {
+    get_attr: unsafe extern "system" fn(
         windows_sys::Win32::Foundation::HWND,
         u32,
         *mut core::ffi::c_void,
         u32,
-    ) -> i32;
-    let dwm = LoadLibraryA(b"dwmapi.dll\0".as_ptr());
-    if dwm.is_null() { return false; }
-    let proc = GetProcAddress(dwm, b"DwmGetWindowAttribute\0".as_ptr());
-    if proc.is_null() { return false; }
-    let func: DwmGetWindowAttributeFn = core::mem::transmute(proc);
-    let mut cloaked: u32 = 0;
-    let res = func(hwnd, 14, &mut cloaked as *mut _ as *mut _, 4);
-    res == 0 && cloaked != 0
+    ) -> i32,
+}
+
+#[cfg(target_os = "windows")]
+unsafe impl Send for DwmApi {}
+#[cfg(target_os = "windows")]
+unsafe impl Sync for DwmApi {}
+
+#[cfg(target_os = "windows")]
+fn dwm_api() -> Option<DwmApi> {
+    use std::sync::OnceLock;
+    static DWM_API_CACHE: OnceLock<Option<DwmApi>> = OnceLock::new();
+    *DWM_API_CACHE.get_or_init(|| unsafe {
+        use windows_sys::Win32::Foundation::HMODULE;
+        extern "system" {
+            fn LoadLibraryA(lpLibFileName: *const u8) -> HMODULE;
+            fn GetProcAddress(hModule: HMODULE, lpProcName: *const u8) -> *const core::ffi::c_void;
+        }
+        let dwm = LoadLibraryA(b"dwmapi.dll\0".as_ptr());
+        if dwm.is_null() { return None; }
+        let proc = GetProcAddress(dwm, b"DwmGetWindowAttribute\0".as_ptr());
+        if proc.is_null() { return None; }
+        Some(DwmApi { get_attr: core::mem::transmute(proc) })
+    })
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn is_cloaked(hwnd: windows_sys::Win32::Foundation::HWND) -> bool {
+    if let Some(api) = dwm_api() {
+        let mut cloaked: u32 = 0;
+        let res = (api.get_attr)(hwnd, 14 /* DWMWA_CLOAKED */, &mut cloaked as *mut _ as *mut _, 4);
+        res == 0 && cloaked != 0
+    } else {
+        false
+    }
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn get_window_bounds(hwnd: windows_sys::Win32::Foundation::HWND) -> Option<windows_sys::Win32::Foundation::RECT> {
+    use windows_sys::Win32::Foundation::RECT;
+    if let Some(api) = dwm_api() {
+        let mut rect = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+        let res = (api.get_attr)(hwnd, 9 /* DWMWA_EXTENDED_FRAME_BOUNDS */, &mut rect as *mut _ as *mut _, core::mem::size_of::<RECT>() as u32);
+        if res == 0 && (rect.right - rect.left) > 0 && (rect.bottom - rect.top) > 0 {
+            return Some(rect);
+        }
+    }
+    None
 }
 
 #[cfg(target_os = "windows")]
@@ -58,6 +93,9 @@ fn enumerate() -> Vec<Surface> {
         if pid == std::process::id() { return 1; }
         let mut rect = RECT { left: 0, top: 0, right: 0, bottom: 0 };
         if unsafe { GetWindowRect(hwnd, &mut rect) } == 0 { return 1; }
+        if let Some(frame) = unsafe { get_window_bounds(hwnd) } {
+            rect = frame;
+        }
         let w = rect.right - rect.left;
         let h = rect.bottom - rect.top;
         if w < 80 || h < 40 { return 1; }
