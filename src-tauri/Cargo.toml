@@ -12,7 +12,7 @@ name = "snowy_display_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.5" }
+tauri-build = { version = "2.5", features = [] }
 
 [dependencies]
 tauri = { version = "2.12", features = ["tray-icon"] }
