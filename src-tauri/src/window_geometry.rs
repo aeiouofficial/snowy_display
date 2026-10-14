@@ -26,11 +26,6 @@ struct DwmApi {
 }
 
 #[cfg(target_os = "windows")]
-unsafe impl Send for DwmApi {}
-#[cfg(target_os = "windows")]
-unsafe impl Sync for DwmApi {}
-
-#[cfg(target_os = "windows")]
 fn dwm_api() -> Option<DwmApi> {
     use std::sync::OnceLock;
     static DWM_API_CACHE: OnceLock<Option<DwmApi>> = OnceLock::new();
@@ -72,6 +67,19 @@ unsafe fn get_window_bounds(hwnd: windows_sys::Win32::Foundation::HWND) -> Optio
     None
 }
 
+/// Desktop shell windows span the whole virtual screen and are not application
+/// windows. Treating them as surfaces would pile snow along the top screen edge
+/// and make every frame look like a fullscreen app is covering the monitor.
+#[cfg(target_os = "windows")]
+unsafe fn is_shell_window(hwnd: windows_sys::Win32::Foundation::HWND) -> bool {
+    use windows_sys::Win32::UI::WindowsAndMessaging::GetClassNameW;
+    let mut buf = [0u16; 64];
+    let len = GetClassNameW(hwnd, buf.as_mut_ptr(), buf.len() as i32);
+    if len <= 0 { return false; }
+    let name = String::from_utf16_lossy(&buf[..len as usize]);
+    matches!(name.as_str(), "Progman" | "WorkerW")
+}
+
 #[cfg(target_os = "windows")]
 fn enumerate() -> Vec<Surface> {
     use windows_sys::Win32::Foundation::{HWND, LPARAM, RECT};
@@ -86,6 +94,7 @@ fn enumerate() -> Vec<Surface> {
         // Skip toolwindows / floating palettes
         let ex_style = unsafe { GetWindowLongW(hwnd, GWL_EXSTYLE) as u32 };
         if (ex_style & WS_EX_TOOLWINDOW) != 0 { return 1; }
+        if unsafe { is_shell_window(hwnd) } { return 1; }
         // Skip virtual-desktop hidden or cloaked DWM windows
         if unsafe { is_cloaked(hwnd) } { return 1; }
         let mut pid: u32 = 0;
@@ -119,6 +128,8 @@ fn enumerate() -> Vec<Surface> {
     let Ok(atom) = atom.reply() else { return Vec::new(); };
     let Ok(pid_atom) = conn.intern_atom(false, b"_NET_WM_PID") else { return Vec::new(); };
     let Ok(pid_atom) = pid_atom.reply() else { return Vec::new(); };
+    let type_atom = conn.intern_atom(false, b"_NET_WM_WINDOW_TYPE").ok().and_then(|c| c.reply().ok()).map(|r| r.atom);
+    let desktop_atom = conn.intern_atom(false, b"_NET_WM_WINDOW_TYPE_DESKTOP").ok().and_then(|c| c.reply().ok()).map(|r| r.atom);
     let Ok(stack) = conn.get_property(false, root, atom.atom, AtomEnum::WINDOW, 0, 4096) else { return Vec::new(); };
     let Ok(stack) = stack.reply() else { return Vec::new(); };
     let Some(ids) = stack.value32() else { return Vec::new(); };
@@ -129,6 +140,14 @@ fn enumerate() -> Vec<Surface> {
         let Ok(attrs) = conn.get_window_attributes(id) else { continue };
         let Ok(attrs) = attrs.reply() else { continue };
         if attrs.map_state != MapState::VIEWABLE { continue; }
+        // Desktop-background windows (Nautilus, PCManFM, xfdesktop) cover the screen.
+        if let (Some(type_atom), Some(desktop_atom)) = (type_atom, desktop_atom) {
+            if let Ok(cookie) = conn.get_property(false, id, type_atom, AtomEnum::ATOM, 0, 16) {
+                if let Ok(reply) = cookie.reply() {
+                    if reply.value32().is_some_and(|mut types| types.any(|t| t == desktop_atom)) { continue; }
+                }
+            }
+        }
         if let Ok(cookie) = conn.get_property(false, id, pid_atom.atom, AtomEnum::CARDINAL, 0, 1) {
             if let Ok(reply) = cookie.reply() {
                 if reply.value32().and_then(|mut items| items.next()) == Some(std::process::id()) { continue; }

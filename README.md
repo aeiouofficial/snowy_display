@@ -15,7 +15,7 @@ Open-source snow accumulation on real desktop application windows. Snow builds u
 
 **CI: frontend and Windows/Linux/macOS native cargo checks pass (4/4).** Android APK builds run on feature-branch source changes or via manual workflow dispatch; still unverified until an artifact is produced.
 
-**Status: alpha scaffold.** Windows TypeScript checks, 9/9 physics tests, and the Vite production build pass. The native Windows `cargo check --offline` also passes; Windows executable builds and runtime verification remain outstanding. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only.
+**Status: alpha.** TypeScript checks, 14/14 deterministic physics tests, the Vite production build, and native Windows `cargo check --offline` pass; a Windows debug executable has been built. Live overlay behaviour (click-through, z-order, mixed DPI, fullscreen pause) has **not** yet been verified on real hardware for any OS. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only. Changes are tracked in `CHANGELOG.md`.
 
 ## Develop
 

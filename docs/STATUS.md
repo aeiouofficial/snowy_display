@@ -14,14 +14,14 @@
 - Git checkout on `S:`: PASS (synchronized with upstream branch `feat/cross-platform-snow-physics-alpha`).
 - Node.js v22.16.0, npm v10.9.2 and Git 2.54: available.
 - `npm install`: PASS (local cache on `S:`).
-- `npm run check`: PASS (TypeScript check and 13/13 deterministic physics tests, including continuous swept collision, secondary clump shatter, granular angle of repose, and wind luv-compensation).
+- `npm run check`: PASS (TypeScript check and 14/14 deterministic physics tests, including continuous swept collision, secondary clump shatter, granular angle of repose, upwind spawn and downwind despawn).
 - `npm run build:web`: PASS (Vite 7.3.7, both entry points bundled cleanly into `dist/`).
 - Rust 1.95.0 compiler: native `cargo check --offline`: PASS (exit code 0) with build outputs on `S:`.
-- DWM API performance: `std::sync::OnceLock` statically caches dynamic function pointers, avoiding ~7,000 loader lock calls/sec.
-- DWM bounds & filtering: `DWMWA_EXTENDED_FRAME_BOUNDS` strips 7-8px Aero drop shadows; `DWMWA_CLOAKED` and `WS_EX_TOOLWINDOW` exclude inactive virtual desktops and floating utility palettes.
+- DWM API: `dwmapi.dll` / `DwmGetWindowAttribute` resolved once per process via `std::sync::OnceLock` (previously two `LoadLibraryA` calls per enumerated window per 140 ms poll).
+- Window filtering: `DWMWA_EXTENDED_FRAME_BOUNDS` strips invisible resize/shadow borders; `DWMWA_CLOAKED`, `WS_EX_TOOLWINDOW` and the desktop shell classes `Progman` / `WorkerW` are excluded. X11 excludes `_NET_WM_WINDOW_TYPE_DESKTOP`; macOS already excludes desktop elements and non-zero layers.
 - Main window lifecycle: `WindowEvent::CloseRequested` is intercepted to prevent window destruction; clicking 'X' safely hides the controls window while keeping overlays and tray icon active.
-- Settings backend: native `get_desktop_settings`, `save_desktop_settings`, `clear_desktop_snow` IPC commands with atomic `.tmp` file write and rename for crash-safe config persistence.
-- Fullscreen battery saver: automated detection of full-screen occluding applications ($\ge 98\%$ coverage) pauses rendering and physics sub-stepping.
+- Settings backend: native `get_desktop_settings`, `save_desktop_settings`, `clear_desktop_snow` IPC commands. Saves broadcast first, then write `settings.json.tmp`, `sync_all`, and rename over `settings.json`; failures are logged and returned to the UI.
+- Fullscreen pause: when the front-most tracked window covers the whole monitor (2 px tolerance), physics and drawing pause and the canvas is cleared once.
 - Production rendering: smooth spline snowdrifts, dual-layer ambient base shadow, crystalline crest highlights, multi-lobed clumps without chord artifacts, and atmospheric flake halos.
 
 ## Windows workspace policy
@@ -46,8 +46,8 @@ terminal or interrupt the user's typing. Other platform builds use their own wor
 
 ## Platform requirements and gaps
 
-- Windows: local native `cargo check` and Windows 2022 CI native `cargo check` PASS; final binary build, live overlay, tray, click-through, z-order and mixed DPI verified.
-- Linux X11: GitHub Actions Ubuntu 24.04 native `cargo check` PASS; live overlay and X11 runtime verified compile-clean.
+- Windows: local native `cargo check` PASS and debug executable built. Live overlay, tray, click-through, z-order, mixed DPI and fullscreen pause still need manual hardware verification.
+- Linux X11: GitHub Actions Ubuntu 24.04 native `cargo check` (last confirmed run 38489148562); live overlay unverified on hardware.
 - Linux Wayland: external-window geometry intentionally unavailable; safe in-app preview fallback.
 - macOS: GitHub Actions macOS 14 native `cargo check` PASS.
 - Android: automated APK CI workflow configured; mobile in-app preview enabled with responsive touch controls.
@@ -56,11 +56,11 @@ terminal or interrupt the user's typing. Other platform builds use their own wor
 ## Next gates
 
 1. DONE: SHA-verified exFAT crate cache hydration (412/412); `cargo check --offline` on Windows passes.
-2. DONE: Enhanced physics engine with continuous swept collision, clump shattering, granular flow, avalanche slabs, and wind luv-compensation (13/13 tests PASS).
-3. DONE: Enhanced rendering with Bezier spline drifts, ambient grounding shadow, and chord-free multi-lobed clumps.
-4. DONE: Cloaked window & toolwindow filtering with Aero shadow stripping in Win32 `window_geometry.rs`.
-5. DONE: Static OnceLock DWM function pointer caching.
-6. DONE: Close prevention on main window and atomic settings persistence.
-7. DONE: Fullscreen battery saver with auto-pausing.
-8. Commit updates to `feat/cross-platform-snow-physics-alpha` and push to GitHub.
-9. Trigger and monitor cross-platform CI and Android APK build.
+2. DONE: Physics engine with continuous swept collision, clump shattering, granular flow, avalanche slabs, upwind spawn / downwind despawn (14/14 tests PASS).
+3. DONE: Bezier spline drifts, ambient grounding shadow, chord-free multi-lobed clumps.
+4. DONE: Cloaked / toolwindow / desktop-shell filtering and frame-bounds correction in `window_geometry.rs`.
+5. DONE: OnceLock DWM function pointer caching.
+6. DONE: Close prevention on main window; durable atomic settings persistence with error reporting.
+7. DONE: Fullscreen pause (front-most window only).
+8. Push and confirm CI matrix + Android APK workflow on the new commit.
+9. Manual hardware QA per release gate 2 and 3 in `docs/ROADMAP.md`.

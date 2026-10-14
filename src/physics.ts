@@ -156,8 +156,9 @@ export class SnowEngine {
   private updateParticles(array: Particle[], dt: number, clump: boolean): void {
     const wind = this.settings.wind * 60 + Math.sin(this.time * 0.58) * 17 + Math.sin(this.time * 1.9) * 8;
     const windSpan = Math.abs(this.settings.wind) * Math.max(120, this.height * 0.75);
-    const minBound = -windSpan - 45;
-    const maxBound = this.width + windSpan + 45;
+    // Only the upwind side is extended: flakes there are still drifting onto the screen.
+    const minBound = this.settings.wind > 0 ? -windSpan - 45 : -45;
+    const maxBound = this.settings.wind < 0 ? this.width + windSpan + 45 : this.width + 45;
     for (let i = array.length - 1; i >= 0; i--) {
       const p = array[i];
       const fromX = p.x;

@@ -1,32 +1,44 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to this project are documented here.
+Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/); versioning: [SemVer 2.0.0](https://semver.org/spec/v2.0.0.html).
+No version has been tagged yet; everything below is unreleased alpha work on
+`feat/cross-platform-snow-physics-alpha`.
 
 ## [Unreleased]
 
-### Added
-- **Static DWM Function Pointer Caching**: Cached `LoadLibraryA("dwmapi.dll")` and `GetProcAddress("DwmGetWindowAttribute")` using Rust `std::sync::OnceLock`, reducing overhead from ~7,000 dynamic loader lock queries per second to a single lookup per process lifetime.
-- **Atomic Settings Persistence**: Replaced direct truncation of `settings.json` with temporary-file write (`settings.json.tmp`) and atomic file replacement (`std::fs::rename`), eliminating risk of corrupted 0-byte configuration files during abrupt termination.
-- **Wind-Compensated Flake Spawning**: Added luv-side spawn offset and horizontal boundary scaling proportional to wind speed and window height, eliminating the bare windward screen void during horizontal gusts.
-- **Fullscreen Window Occlusion Battery Saver**: Added detection for top-level windows covering $\ge 98\%$ of the screen, pausing canvas rendering and physics sub-stepping while clearing canvas memory to minimize CPU/GPU drain during fullscreen games and video playback.
-- **Wind Coverage Regression Test**: Added deterministic test validating upwind particle generation and uniform windward screen coverage.
-
 ### Fixed
-- **Canvas2D Clump Chord Artifacts**: Added `ctx.moveTo()` calls before each arc in `drawClump()`, preventing Canvas 2D from connecting separate lobes with straight-line subpath chords.
-- **CI Dependency Consistency**: Switched GitHub Actions workflows from `npm install` to `npm ci --no-audit --no-fund` to enforce deterministic, reproducible builds against `package-lock.json`.
-
-## [0.1.0-alpha.1] - 2026-10-14
+- **Desktop shell windows treated as surfaces** (Windows `Progman`/`WorkerW`, X11 `_NET_WM_WINDOW_TYPE_DESKTOP`).
+  They span the whole screen, so falling snow collected along the top screen edge, and the
+  fullscreen pause would have stayed on permanently. They are now excluded from enumeration.
+- **Fullscreen pause ignored stacking order**: a fullscreen window behind other windows paused the
+  snow. Only the front-most tracked window can trigger the pause now; the paused canvas is cleared once
+  instead of every frame.
+- **Settings durability**: the temp file is flushed with `sync_all` before the atomic rename
+  (`MoveFileExW` + `MOVEFILE_REPLACE_EXISTING` on Windows). Write failures are logged and returned to the
+  UI instead of a silent `Ok`. The settings event is broadcast before disk I/O, so overlays follow the
+  controls even when saving fails. A corrupt or unreadable `settings.json` is logged before defaults are used.
+- **Downwind flakes outlived the screen**: only the upwind despawn bound is extended, so flakes that
+  drifted off the downwind edge no longer consume the 1 250-flake budget.
+- **Clump rendering chords**: each clump lobe starts its own sub-path (`moveTo`), removing straight
+  connecting lines between lobes.
+- **CI drift**: `check.yml` uses `npm ci` (lockfile-exact) like `android-apk.yml`.
+- **Win32 loader overhead**: `dwmapi.dll` and `DwmGetWindowAttribute` are resolved once per process
+  (`OnceLock`) instead of twice per enumerated window on every 140 ms poll.
+- **Bare upwind region in wind**: flakes spawn across an upwind band proportional to wind strength and
+  screen height, and the spawn rate scales with that band, so screen density is unchanged.
 
 ### Added
-- **Deterministic Snow Physics Engine**: Discrete heightfield accumulation with continuous swept-collision detection, particle velocity bounds, and pseudo-random seed determinism.
-- **Realistic Snowpack Dynamics**: Angle of repose slope settlement, slab avalanche shedding, clump velocity shattering on impact, and top-edge exposure calculation based on global window z-ordering.
-- **Multi-Monitor Transparent Overlays**: Tauri v2 multi-monitor overlay window spawning with click-through pointer event pass-through and system tray integration.
-- **Platform Window Enumeration**:
-  - Windows: Win32 `EnumWindows` with `DWMWA_EXTENDED_FRAME_BOUNDS` for shadow stripping, `DWMWA_CLOAKED` for virtual desktop filtering, and `WS_EX_TOOLWINDOW` floating palette exclusion.
-  - Linux: X11 EWMH `_NET_CLIENT_LIST_STACKING` and `_NET_WM_PID` tracking with Wayland safe fallback.
-  - macOS: Objective-C `CGWindowListCopyWindowInfo` bridge.
-- **Modern Dark-Mode UI**: Glassmorphic control panel with CSS custom property tokens, range sliders, real-time metrics, and instant snow clearing controls.
-- **Test Suite**: 12 deterministic physics integration tests verifying mass conservation, exposure limits, continuous collision, and granular slumping.
+- Window bounds from `DWMWA_EXTENDED_FRAME_BOUNDS`, removing the invisible resize/shadow border from
+  `GetWindowRect` so snow sits on the visible frame.
+- Fullscreen pause: simulation and drawing stop while the front-most window covers the whole monitor.
+- Dark-mode control panel styling (`src/style.css`).
+- Regression tests: upwind spawn coverage, downwind despawn (14 tests total).
+
+### Earlier alpha work (before this changelog existed)
+- Deterministic heightfield snow engine: swept collision, angle-of-repose settling, slab release,
+  clump shatter, z-order-aware exposure.
+- Per-monitor transparent click-through overlays, tray menu, hide-on-close controls window.
+- Native window enumeration: Win32 `EnumWindows` (cloaked/toolwindow filters), X11 EWMH stacking list
+  with Wayland preview fallback, macOS CoreGraphics bridge.
+- Native settings commands with cross-webview event broadcast; Android APK CI workflow.

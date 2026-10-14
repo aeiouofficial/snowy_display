@@ -38,13 +38,16 @@ export async function fetchSettings(): Promise<AppSettings> {
   return loadSettings();
 }
 
+const inTauri = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
 export async function broadcastSettings(value: AppSettings): Promise<void> {
   saveSettings(value);
+  if (!inTauri()) return; // Browser preview: localStorage is the only store.
   try {
     const { invoke } = await import('@tauri-apps/api/core');
     await invoke('save_desktop_settings', { settings: value });
-  } catch {
-    // Web environment fallback
+  } catch (err) {
+    console.warn('[snowy] native settings save failed; values apply this session only', err);
   }
 }
 

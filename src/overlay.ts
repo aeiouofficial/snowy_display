@@ -16,6 +16,7 @@ let lastFrame = performance.now();
 let lastPoll = 0;
 let polling = false;
 let isCoveredFullscreen = false;
+let canvasCleared = false;
 let lastFailureLog = 0;
 const ownWindow = getCurrentWindow();
 const monitorIsMac = navigator.userAgent.includes('Macintosh');
@@ -35,7 +36,12 @@ async function refreshSurfaces(): Promise<void> {
       x: s.x / units - origin.x / scale, y: s.y / units - origin.y / scale,
       width: s.width / units, height: s.height / units,
     })).filter(s => s.x < innerWidth && s.x + s.width > 0 && s.y < innerHeight && s.y + s.height > 0);
-    isCoveredFullscreen = mapped.some(s => s.x <= 2 && s.y <= 2 && (s.x + s.width) >= innerWidth - 2 && (s.y + s.height) >= innerHeight - 2);
+    // Pause only if the front-most window covers this whole monitor (2 px tolerance).
+    // Any other window above it keeps rendering on: false negatives cost battery,
+    // false positives would hide the snow entirely.
+    const front = mapped.reduce<Surface | null>((top, s) => (!top || s.z > top.z ? s : top), null);
+    isCoveredFullscreen = !!front && front.x <= 2 && front.y <= 2 &&
+      front.x + front.width >= innerWidth - 2 && front.y + front.height >= innerHeight - 2;
     engine.setSurfaces([...mapped, bottom()], performance.now() / 1000);
   } catch (error) {
     isCoveredFullscreen = false;
@@ -55,7 +61,11 @@ function frame(now: number): void {
     const substeps = Math.min(4, Math.max(1, Math.ceil(elapsed / (1 / 60))));
     for (let i = 0; i < substeps; i++) engine.step(elapsed / substeps);
     drawSnow(ctx, engine);
-  } else { ctx.clearRect(0, 0, innerWidth, innerHeight); }
+    canvasCleared = false;
+  } else if (!canvasCleared) {
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    canvasCleared = true;
+  }
   requestAnimationFrame(frame);
 }
 function apply(next: AppSettings): void { settings = next; engine.configure(next); }

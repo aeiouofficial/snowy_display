@@ -149,3 +149,14 @@ test('wind compensation spawns flakes upwind and maintains full screen coverage'
   assert.ok(flakes.some(p => p.x < 0), 'flakes must spawn upwind to prevent windward coverage void');
   assert.ok(flakes.some(p => p.x >= 0 && p.x <= 100), 'windward screen region must not be bare');
 });
+
+test('downwind flakes that left the screen are discarded and do not consume the flake budget', () => {
+  for (const wind of [0.8, -0.8]) {
+    const e = new SnowEngine(400, 300, 5);
+    e.configure({ wind, snowfall: 1.0 });
+    for (let i = 0; i < 900; i++) e.step(1 / 60);
+    const flakes = e.snapshot().flakes;
+    const downwindLeak = flakes.filter(p => (wind > 0 ? p.x > 400 + 45 : p.x < -45));
+    assert.equal(downwindLeak.length, 0, `wind ${wind}: no flake may survive past the downwind edge`);
+  }
+});

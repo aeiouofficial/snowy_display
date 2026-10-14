@@ -29,35 +29,66 @@ impl Default for AppSettings {
 #[tauri::command]
 fn get_desktop_settings(app: tauri::AppHandle) -> AppSettings {
     use tauri::Manager;
-    if let Ok(config_dir) = app.path().app_config_dir() {
-        let path = config_dir.join("settings.json");
-        if let Ok(data) = std::fs::read_to_string(path) {
-            if let Ok(val) = serde_json::from_str::<AppSettings>(&data) {
-                return val;
+    let Ok(config_dir) = app.path().app_config_dir() else { return AppSettings::default(); };
+    let path = config_dir.join("settings.json");
+    match std::fs::read_to_string(&path) {
+        Ok(data) => match serde_json::from_str::<AppSettings>(&data) {
+            Ok(value) => value,
+            Err(error) => {
+                eprintln!("[snowy][warning] {} is invalid ({error}); using defaults until next save", path.display());
+                AppSettings::default()
             }
+        },
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => AppSettings::default(),
+        Err(error) => {
+            eprintln!("[snowy][warning] cannot read {} ({error}); using defaults", path.display());
+            AppSettings::default()
         }
     }
-    AppSettings::default()
+}
+
+/// Write `payload` to `path` atomically: temp file in the same directory,
+/// flushed to disk, then renamed over the target (MoveFileExW with
+/// MOVEFILE_REPLACE_EXISTING on Windows, rename(2) on Unix).
+fn write_atomic(path: &std::path::Path, payload: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let tmp_path = path.with_extension("json.tmp");
+    let result = (|| {
+        let mut file = std::fs::File::create(&tmp_path)?;
+        file.write_all(payload)?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&tmp_path, path)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp_path);
+    }
+    result
 }
 
 #[tauri::command]
 fn save_desktop_settings(app: tauri::AppHandle, settings: AppSettings) -> Result<(), String> {
     use tauri::{Emitter, Manager};
-    if let Ok(config_dir) = app.path().app_config_dir() {
-        let _ = std::fs::create_dir_all(&config_dir);
-        let path = config_dir.join("settings.json");
-        let tmp_path = config_dir.join("settings.json.tmp");
-        if let Ok(payload) = serde_json::to_string_pretty(&settings) {
-            if std::fs::write(&tmp_path, payload.as_bytes()).is_ok() {
-                if std::fs::rename(&tmp_path, &path).is_err() {
-                    let _ = std::fs::write(&path, payload.as_bytes());
-                    let _ = std::fs::remove_file(&tmp_path);
-                }
-            }
-        }
+    // Broadcast first: running overlays must follow the controls even if disk I/O fails.
+    if let Err(error) = app.emit("snowy-display:settings", &settings) {
+        eprintln!("[snowy][error] settings broadcast failed; overlays keep previous settings: {error}");
     }
-    let _ = app.emit("snowy-display:settings", &settings);
-    Ok(())
+    let config_dir = app.path().app_config_dir().map_err(|error| {
+        let message = format!("settings not persisted: config directory unavailable: {error}");
+        eprintln!("[snowy][error] {message}");
+        message
+    })?;
+    let persist = || -> std::io::Result<()> {
+        std::fs::create_dir_all(&config_dir)?;
+        let payload = serde_json::to_vec_pretty(&settings)
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
+        write_atomic(&config_dir.join("settings.json"), &payload)
+    };
+    persist().map_err(|error| {
+        let message = format!("settings not persisted to {}: {error}; previous file left intact", config_dir.display());
+        eprintln!("[snowy][error] {message}");
+        message
+    })
 }
 
 #[tauri::command]
