@@ -1,6 +1,6 @@
 import type { Particle, SnowEngine, Surface } from './physics.ts';
 
-export function drawSnow(ctx: CanvasRenderingContext2D, engine: SnowEngine, maskWindows = true): void {
+export function drawSnow(ctx: CanvasRenderingContext2D, engine: SnowEngine, maskWindows = false): void {
   const { width, height } = engine;
   ctx.clearRect(0, 0, width, height);
   const scene = engine.snapshot();

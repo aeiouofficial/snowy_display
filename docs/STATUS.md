@@ -21,7 +21,11 @@
 - Window filtering: `DWMWA_EXTENDED_FRAME_BOUNDS` strips invisible resize/shadow borders; `DWMWA_CLOAKED`, `WS_EX_TOOLWINDOW` and the desktop shell classes `Progman` / `WorkerW` are excluded. X11 excludes `_NET_WM_WINDOW_TYPE_DESKTOP`; macOS already excludes desktop elements and non-zero layers.
 - Main window lifecycle: `WindowEvent::CloseRequested` is intercepted to prevent window destruction; clicking 'X' safely hides the controls window while keeping overlays and tray icon active.
 - Settings backend: native `get_desktop_settings`, `save_desktop_settings`, `clear_desktop_snow` IPC commands. Saves broadcast first, then write `settings.json.tmp`, `sync_all`, and rename over `settings.json`; failures are logged and returned to the UI.
-- Fullscreen pause: when the front-most tracked window covers the whole monitor (2 px tolerance), physics and drawing pause and the canvas is cleared once.
+- Overlay visibility and flake rendering: `maskWindows` defaulted to false in `src/render.ts` and `src/overlay.ts` so falling flakes drift across the screen without being erased over open windows. `isCoveredFullscreen` pause disabled to prevent maximized apps from clearing canvas to blank.
+- Startup window and tray resilience: `tauri.conf.json` updated with `"visible": true` and bundled icons array (`32x32`, `128x128`, `128x128@2x`, `icon.ico`). `lib.rs` shows main window on launch and configures tray icon safely without panicking `.expect()`.
+- Portable panic logging: `main.rs` panic hook logs to executable directory, system temp dir (`snowy-display-panic.txt`), and workspace without crashing on missing directories.
+- Production release build: `npm run build -- --no-bundle -- --offline` completed successfully in release mode; standalone binary generated at `S:\snowy_display\.build\target\release\snowy-display.exe` (9,313,792 bytes, SHA-256 `F9F99B5DCBE4F1955061C2112449406EB0ED95548495F19C5EE705CED8E10786`).
+- Runtime execution verification: automated live launch test confirmed successful process startup and event loop execution without panic or exit errors.
 - Production rendering: smooth spline snowdrifts, dual-layer ambient base shadow, crystalline crest highlights, multi-lobed clumps without chord artifacts, and atmospheric flake halos.
 
 ## Windows workspace policy

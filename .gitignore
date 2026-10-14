@@ -14,3 +14,4 @@ src-tauri/gen/
 .cache/
 .home/
 .build/
+*.code-workspace

@@ -102,7 +102,8 @@ fn clear_desktop_snow(app: tauri::AppHandle) -> Result<(), String> {
 fn desktop_overlays(app: &mut tauri::App) -> tauri::Result<()> {
     use tauri::{Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
     let main = app.get_webview_window("main").expect("main window configured");
-    main.hide()?;
+    main.show()?;
+    let _ = main.set_focus();
     let main_clone = main.clone();
     main.on_window_event(move |event| {
         if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -139,8 +140,8 @@ fn desktop_overlays(app: &mut tauri::App) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "Show controls", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Snowy Display", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &quit])?;
-    let icon = app.default_window_icon().cloned().expect("application icon configured");
-    let _tray = TrayIconBuilder::new().icon(icon).tooltip("Snowy Display")
+    let mut tray_builder = TrayIconBuilder::new()
+        .tooltip("Snowy Display")
         .menu(&menu)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "show" => {
@@ -151,8 +152,11 @@ fn desktop_overlays(app: &mut tauri::App) -> tauri::Result<()> {
             }
             "quit" => app.exit(0),
             _ => {}
-        })
-        .build(app)?;
+        });
+    if let Some(icon) = app.default_window_icon().cloned() {
+        tray_builder = tray_builder.icon(icon);
+    }
+    let _ = tray_builder.build(app);
     Ok(())
 }
 
