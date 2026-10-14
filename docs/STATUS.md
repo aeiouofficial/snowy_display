@@ -41,16 +41,16 @@ terminal or interrupt the user's typing. Other platform builds use their own wor
 ## Cross-platform CI
 
 - GitHub Actions workflow hardened with `npm ci` for deterministic package resolution.
-- Multi-platform matrix: frontend, Windows 2022, Ubuntu 24.04, macOS 14.
-- Android APK workflow: `.github/workflows/android-apk.yml` automated for feature-branch pushes.
+- Multi-platform matrix: frontend, Windows 2022, Ubuntu 24.04, macOS 14 (Run `38511353693`: 4/4 PASS).
+- Android APK workflow: `.github/workflows/android-apk.yml` automated and verified (Run `38511353678`: PASS, generated `snowy-display-android-unsigned` artifact across `aarch64`, `armv7`, `i686`, `x86_64`).
 
 ## Platform requirements and gaps
 
 - Windows: local native `cargo check` PASS and debug executable built. Live overlay, tray, click-through, z-order, mixed DPI and fullscreen pause still need manual hardware verification.
-- Linux X11: GitHub Actions Ubuntu 24.04 native `cargo check` (last confirmed run 38489148562); live overlay unverified on hardware.
+- Linux X11: GitHub Actions Ubuntu 24.04 native `cargo check` PASS (Run `38511353693`); live overlay unverified on hardware.
 - Linux Wayland: external-window geometry intentionally unavailable; safe in-app preview fallback.
-- macOS: GitHub Actions macOS 14 native `cargo check` PASS.
-- Android: automated APK CI workflow configured; mobile in-app preview enabled with responsive touch controls.
+- macOS: GitHub Actions macOS 14 native `cargo check` PASS (Run `38511353693`).
+- Android: automated APK CI workflow verified; unsigned multi-architecture APK built and artifact uploaded; mobile in-app preview enabled with responsive touch controls.
 - iOS: future in-app preview target planned in configuration.
 
 ## Next gates
