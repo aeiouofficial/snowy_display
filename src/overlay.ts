@@ -72,6 +72,7 @@ async function refreshSurfaces(): Promise<void> {
     engine.setSurfaces([bottom()], performance.now() / 1000);
   } finally { polling = false; }
 }
+let overlayShown = false;
 function frame(now: number): void {
   const elapsed = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
@@ -82,6 +83,10 @@ function frame(now: number): void {
     for (let i = 0; i < substeps; i++) engine.step(elapsed / substeps);
     drawSnow(ctx, engine, false);
     canvasCleared = false;
+    if (!overlayShown) {
+      overlayShown = true;
+      void ownWindow.show().catch(() => {});
+    }
   } else if (!canvasCleared) {
     ctx.clearRect(0, 0, innerWidth, innerHeight);
     canvasCleared = true;

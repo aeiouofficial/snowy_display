@@ -168,7 +168,7 @@ fn create_overlays(app: &tauri::AppHandle) {
                     let _ = w.set_position(PhysicalPosition::new(monitor.position().x, monitor.position().y));
                     let _ = w.set_size(PhysicalSize::new(monitor.size().width, monitor.size().height));
                     let _ = w.set_ignore_cursor_events(true);
-                    let _ = w.show();
+                    // Do not eagerly show overlay; overlay.ts will call ownWindow.show() only after successful canvas render
                 }
             }
         }
