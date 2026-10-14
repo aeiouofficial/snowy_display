@@ -1,5 +1,5 @@
 /** Screen coordinates are in CSS pixels; higher z means closer to the user. */
-export interface Surface { id: string; x: number; y: number; width: number; height: number; z: number }
+export interface Surface { id: string; x: number; y: number; width: number; height: number; z: number; hidden?: boolean }
 export interface Settings { snowfall: number; wind: number; gravity: number; cohesion: number; maxDepth: number }
 export interface Particle { x: number; y: number; vx: number; vy: number; radius: number; opacity: number; mass: number }
 export interface Pile { surface: Surface; bins: number[] }
@@ -77,7 +77,8 @@ export class SnowEngine {
   }
   /** Supply ALL visible windows, front-to-back or in any order, with stable IDs. */
   setSurfaces(surfaces: Surface[], atSeconds = this.time): void {
-    const clean = surfaces.filter(s => s.id && [s.x, s.y, s.width, s.height, s.z].every(finite) && s.width > 1 && s.height > 0 && s.y > 6);
+    const hiddenIds = new Set(surfaces.filter(s => s.hidden && s.id).map(s => s.id));
+    const clean = surfaces.filter(s => !s.hidden && s.id && [s.x, s.y, s.width, s.height, s.z].every(finite) && s.width > 1 && s.height > 0 && s.y > 6);
     const ordered = [...clean].sort((a, b) => b.z - a.z);
     const stepSeconds = Math.max(0.05, Math.min(2, atSeconds - this.previousSurfaceUpdate));
     for (const s of ordered) {
@@ -106,19 +107,15 @@ export class SnowEngine {
     const ids = new Set(ordered.map(s => s.id));
     for (const [id, pile] of this.piles) {
       if (!ids.has(id)) {
-        this.shed(pile, 1, 0);
+        // Minimized/cloaked windows no longer occupy the desktop; do not dump
+        // their snow onto an unrelated window beneath them.
+        if (!hiddenIds.has(id)) this.shed(pile, 1, 0);
         this.piles.delete(id);
       }
     }
     this.surfaces = ordered;
-    for (const pile of this.piles.values()) {
-      for (let i = 0; i < pile.bins.length; i++) {
-        const x = pile.surface.x + Math.min(pile.surface.width - 0.5, (i + 0.5) * CELL);
-        if (!this.isExposed(pile.surface, x) && pile.bins[i] > 0.08) {
-          this.releaseBin(pile, i, 1, 0);
-        }
-      }
-    }
+    // Covered regions retain their previous snow without receiving new mass;
+    // drawing masks them until exposed again. Occlusion itself cannot shed snow.
     this.previousSurfaceUpdate = atSeconds;
   }
   /** Is this coordinate on the exposed top of this surface? */
@@ -144,9 +141,15 @@ export class SnowEngine {
     if (!pile || !finite(mass) || mass <= 0 || !this.isExposed(pile.surface, x)) return false;
     const i = clamp(Math.floor((x - pile.surface.x) / CELL), 0, pile.bins.length - 1);
     const radius = pile.bins.length;
-    pile.bins[i] = Math.min(this.settings.maxDepth, pile.bins[i] + mass * 0.58);
-    if (i > 0) pile.bins[i - 1] = Math.min(this.settings.maxDepth, pile.bins[i - 1] + mass * 0.13);
-    if (i + 1 < radius) pile.bins[i + 1] = Math.min(this.settings.maxDepth, pile.bins[i + 1] + mass * 0.13);
+    const addVisible = (bin: number, amount: number) => {
+      const binX = pile.surface.x + Math.min(pile.surface.width - 0.5, (bin + 0.5) * CELL);
+      if (this.isExposed(pile.surface, binX)) {
+        pile.bins[bin] = Math.min(this.settings.maxDepth, pile.bins[bin] + amount);
+      }
+    };
+    addVisible(i, mass * 0.58);
+    if (i > 0) addVisible(i - 1, mass * 0.13);
+    if (i + 1 < radius) addVisible(i + 1, mass * 0.13);
     return true;
   }
   private releaseBin(pile: InternalPile, i: number, fraction: number, velocity: number): void {
@@ -230,7 +233,8 @@ export class SnowEngine {
       const b = pile.bins;
       for (let i = 0; i < b.length; i++) {
         if (!this.isExposed(pile.surface, pile.surface.x + i * CELL + CELL / 2)) continue;
-        if (i + 1 < b.length) {
+        if (i + 1 < b.length && this.isExposed(pile.surface,
+          pile.surface.x + Math.min(pile.surface.width - 0.5, (i + 1.5) * CELL))) {
           const diff = b[i] - b[i + 1];
           if (Math.abs(diff) > repose) {
             const amount = Math.min(Math.abs(diff) * 0.5, Math.max(0, Math.abs(diff) - repose) * dt * 3.8);
@@ -289,17 +293,18 @@ export class SnowEngine {
     if (this.mouseX < -80 || this.mouseX > this.width + 80 || this.mouseY < -80 || this.mouseY > this.height + 80) return;
 
     // Smoothly decay velocity when mouse halts
-    const decay = Math.exp(-dt * 4.5);
+    const decay = Math.exp(-dt * 5.0);
     this.mouseVx *= decay;
     this.mouseVy *= decay;
 
     const speed = Math.hypot(this.mouseVx, this.mouseVy);
-    const radius = Math.min(110, 38 + speed * 0.045);
+    // Tight radius matching the actual Windows cursor arrow (11px base, max 18px at high speed)
+    const radius = Math.min(18, 11 + speed * 0.012);
     const radiusSq = radius * radius;
     const mX = this.mouseX;
     const mY = this.mouseY;
 
-    // 1. Continuous aerodynamic deflection & umbrella parting for falling flakes
+    // 1. Gentle aerodynamic deflection & slipstream parting for falling flakes
     for (const flake of this.flakes) {
       const dx = flake.x - mX;
       const dy = flake.y - mY;
@@ -308,62 +313,57 @@ export class SnowEngine {
         const dist = Math.sqrt(dSq);
         const norm = 1 - dist / radius;
 
-        // Radial repulsion pushes flakes away from the cursor core
-        const push = norm * norm * 180 * dt;
+        // Subtle radial nudge away from cursor tip
+        const push = norm * 35 * dt;
         flake.vx += (dx / dist) * push;
         flake.vy += (dy / dist) * push;
 
-        // Aerodynamic bow wave / umbrella effect: flakes directly above split laterally
-        if (dy < 12 && flake.vy > 0) {
+        // Gentle parting: flakes right on the pointer tip flutter laterally
+        if (dy < 6 && flake.vy > 0) {
           const lateralSign = dx >= 0 ? 1 : -1;
-          const lateralPush = lateralSign * (1 - Math.abs(dx) / radius) * 160 * dt;
-          flake.vx += lateralPush;
-          flake.vy *= Math.max(0.15, 1 - norm * 1.8 * dt);
+          flake.vx += lateralSign * norm * 30 * dt;
+          flake.vy *= Math.max(0.65, 1 - norm * 0.4 * dt);
         }
 
-        // Velocity wake transfer
-        if (speed > 5) {
-          flake.vx += this.mouseVx * norm * 0.5 * dt * 30;
-          flake.vy += this.mouseVy * norm * 0.5 * dt * 30;
+        // Very subtle velocity wake
+        if (speed > 10) {
+          flake.vx += this.mouseVx * norm * 0.12 * dt * 30;
+          flake.vy += this.mouseVy * norm * 0.12 * dt * 30;
         }
       }
     }
 
-    // 2. Continuous deflection for clumps
+    // 2. Subtle deflection for clumps
     for (const clump of this.clumps) {
       const dx = clump.x - mX;
       const dy = clump.y - mY;
       const dSq = dx * dx + dy * dy;
-      if (dSq < radiusSq * 0.72 && dSq > 0.001) {
+      if (dSq < radiusSq * 0.8 && dSq > 0.001) {
         const dist = Math.sqrt(dSq);
-        const norm = 1 - dist / (radius * 0.85);
-        clump.vx += (dx / dist) * norm * 120 * dt;
-        clump.vy += (dy / dist) * norm * 120 * dt;
-        if (speed > 5) {
-          clump.vx += this.mouseVx * norm * 0.3 * dt * 30;
-          clump.vy += this.mouseVy * norm * 0.3 * dt * 30;
-        }
+        const norm = 1 - dist / radius;
+        clump.vx += (dx / dist) * norm * 25 * dt;
+        clump.vy += (dy / dist) * norm * 25 * dt;
       }
     }
 
-    // 3. Stationary / slow cursor indents touching snow piles
+    // 3. Stationary cursor lightly settles on touching snow piles
     for (const pile of this.piles.values()) {
       const s = pile.surface;
-      if (mX >= s.x - 8 && mX <= s.x + s.width + 8 && Math.abs(mY - s.y) < 20) {
+      if (mX >= s.x - 4 && mX <= s.x + s.width + 4 && Math.abs(mY - s.y) < 10) {
         const centerBin = Math.floor((mX - s.x) / CELL);
-        const hoverRadius = Math.max(1, Math.ceil(radius / (CELL * 3)));
+        const hoverRadius = 1;
         for (let b = Math.max(0, centerBin - hoverRadius); b <= Math.min(pile.bins.length - 1, centerBin + hoverRadius); b++) {
           const binX = s.x + (b + 0.5) * CELL;
           const dist = Math.abs(mX - binX);
-          if (dist < radius * 0.75) {
-            const indent = (1 - dist / (radius * 0.75)) * 1.8 * dt;
+          if (dist < radius && this.isExposed(s, binX)) {
+            const indent = (1 - dist / radius) * 0.6 * dt;
             pile.bins[b] = Math.max(0, pile.bins[b] - indent);
           }
         }
       }
     }
   }
-  /** Swept continuous mouse interaction: deflects flakes and carves snow piles along the full stroke vector */
+  /** Swept continuous mouse interaction: gentle deflection strictly along the cursor path */
   interactMouse(mouseX: number, mouseY: number, atSeconds = this.time): void {
     if (!finite(mouseX) || !finite(mouseY)) return;
 
@@ -389,7 +389,8 @@ export class SnowEngine {
     const y2 = mouseY;
 
     const speed = Math.hypot(this.mouseVx, this.mouseVy);
-    const radius = Math.min(115, 42 + speed * 0.05);
+    // Subtle, tight radius matching the pointer body (12px base, max 20px)
+    const radius = Math.min(20, 12 + speed * 0.012);
     const radiusSq = radius * radius;
 
     const minX = Math.min(x1, x2) - radius;
@@ -397,46 +398,47 @@ export class SnowEngine {
     const minY = Math.min(y1, y2) - radius;
     const maxY = Math.max(y1, y2) + radius;
 
-    // 1. Swept anti-tunneling deflection for falling flakes
+    // 1. Swept gentle deflection for falling flakes
     for (const flake of this.flakes) {
       if (flake.x < minX || flake.x > maxX || flake.y < minY || flake.y > maxY) continue;
       const { distSq, qx, qy } = distToSegment(flake.x, flake.y, x1, y1, x2, y2);
       if (distSq < radiusSq) {
         const dist = Math.max(0.001, Math.sqrt(distSq));
         const norm = 1 - dist / radius;
-        const pushMag = norm * norm * (140 + speed * 0.38);
+        // Natural, gentle push impulse
+        const pushMag = norm * (24 + Math.min(speed * 0.08, 38));
 
         const nx = (flake.x - qx) / dist;
         const ny = (flake.y - qy) / dist;
 
-        flake.vx += nx * pushMag + this.mouseVx * norm * 0.42;
-        flake.vy += ny * pushMag + this.mouseVy * norm * 0.42;
+        flake.vx += nx * pushMag + this.mouseVx * norm * 0.15;
+        flake.vy += ny * pushMag + this.mouseVy * norm * 0.15;
 
-        // Wake vortex swirl perpendicular to stroke direction
-        const swirl = (this.mouseVx * (-ny) + this.mouseVy * nx) * 0.22;
+        // Subtle micro-swirl
+        const swirl = (this.mouseVx * (-ny) + this.mouseVy * nx) * 0.06;
         flake.vx += -ny * swirl;
         flake.vy += nx * swirl;
       }
     }
 
-    // 2. Swept deflection for clumps
+    // 2. Swept gentle deflection for clumps
     for (const clump of this.clumps) {
       if (clump.x < minX || clump.x > maxX || clump.y < minY || clump.y > maxY) continue;
       const { distSq, qx, qy } = distToSegment(clump.x, clump.y, x1, y1, x2, y2);
-      if (distSq < radiusSq * 0.72) {
+      if (distSq < radiusSq * 0.8) {
         const dist = Math.max(0.001, Math.sqrt(distSq));
-        const norm = 1 - dist / (radius * 0.85);
+        const norm = 1 - dist / radius;
         const nx = (clump.x - qx) / dist;
         const ny = (clump.y - qy) / dist;
-        clump.vx += nx * norm * 95 + this.mouseVx * 0.25;
-        clump.vy += ny * norm * 95 + this.mouseVy * 0.25;
+        clump.vx += nx * norm * 20 + this.mouseVx * 0.1;
+        clump.vy += ny * norm * 20 + this.mouseVy * 0.1;
       }
     }
 
-    // 3. Swept pile plowing and snow carving
+    // 3. Precise snow pile carving strictly when cursor tip touches the pile
     for (const pile of this.piles.values()) {
       const s = pile.surface;
-      if (minY <= s.y + 24 && maxY >= s.y - 24) {
+      if (minY <= s.y + 12 && maxY >= s.y - 12) {
         const spanMinX = Math.max(s.x, minX);
         const spanMaxX = Math.min(s.x + s.width, maxX);
         if (spanMinX <= spanMaxX) {
@@ -446,22 +448,22 @@ export class SnowEngine {
             const binX = s.x + (b + 0.5) * CELL;
             const binY = s.y - pile.bins[b] * 0.5;
             const { distSq } = distToSegment(binX, binY, x1, y1, x2, y2);
-            if (distSq < radiusSq) {
+            if (distSq < radiusSq && this.isExposed(s, binX)) {
               const dist = Math.sqrt(distSq);
               const currentDepth = pile.bins[b];
               if (currentDepth > 0.08) {
                 const norm = 1 - dist / radius;
-                const removeFraction = Math.min(0.9, norm * 0.65 * (1.25 - this.settings.cohesion));
+                const removeFraction = Math.min(0.5, norm * 0.35 * (1.2 - this.settings.cohesion));
                 const removedMass = currentDepth * removeFraction;
-                if (removedMass > 0.15) {
+                if (removedMass > 0.08) {
                   pile.bins[b] = Math.max(0, currentDepth - removedMass);
                   if (this.clumps.length < MAX_CLUMPS) {
                     this.clumps.push({
                       x: binX,
                       y: s.y - currentDepth * 0.8,
-                      vx: this.mouseVx * 0.32 + (this.rand() * 44 - 22),
-                      vy: Math.min(-12, this.mouseVy * 0.3) - this.rand() * 32,
-                      radius: clamp(Math.sqrt(removedMass) * 1.7, 1.4, 7),
+                      vx: this.mouseVx * 0.15 + (this.rand() * 20 - 10),
+                      vy: Math.min(-6, this.mouseVy * 0.15) - this.rand() * 14,
+                      radius: clamp(Math.sqrt(removedMass) * 1.3, 1.1, 4),
                       opacity: 0.88,
                       mass: removedMass,
                     });

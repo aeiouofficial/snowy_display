@@ -24,12 +24,15 @@ export function saveSettings(value: AppSettings): void {
   catch (err) { console.warn('[snowy] could not persist settings', err); }
 }
 
-export async function fetchSettings(): Promise<AppSettings> {
-  try {
+export async function fetchSettings(
+  readNative: () => Promise<AppSettings> = async () => {
     const { invoke } = await import('@tauri-apps/api/core');
-    const fromBackend = await invoke<AppSettings>('get_desktop_settings');
+    return invoke<AppSettings>('get_desktop_settings');
+  },
+): Promise<AppSettings> {
+  try {
+    const fromBackend = await readNative();
     if (fromBackend && typeof fromBackend.snowfall === 'number') {
-      saveSettings(fromBackend);
       return fromBackend;
     }
   } catch {

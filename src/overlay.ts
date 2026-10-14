@@ -59,7 +59,7 @@ async function refreshSurfaces(): Promise<void> {
     const mapped = rects.map(s => ({ ...s,
       x: s.x / units - origin.x / scale, y: s.y / units - origin.y / scale,
       width: s.width / units, height: s.height / units,
-    })).filter(s => s.x < innerWidth && s.x + s.width > 0 && s.y < innerHeight && s.y + s.height > 0 && s.y > 6);
+    })).filter(s => s.hidden || (s.x < innerWidth && s.x + s.width > 0 && s.y < innerHeight && s.y + s.height > 0 && s.y > 6));
     // Keep rendering active across desktop and open windows
     isCoveredFullscreen = false;
     engine.setSurfaces([...mapped, bottom()], performance.now() / 1000);

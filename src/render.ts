@@ -12,7 +12,19 @@ export function drawSnow(ctx: CanvasRenderingContext2D, engine: SnowEngine, mask
   }
   for (const pile of scene.piles) {
     const { surface: s, bins } = pile;
-    if (s.y <= 6) continue;
+    // Cut foreground window rectangles out of this pile only. Falling flakes
+    // remain visible, while buried snow cannot bleed through an upper window.
+    const higher = scene.surfaces.filter(other => other.id !== s.id && other.z > s.z &&
+      other.x < s.x + s.width && other.x + other.width > s.x &&
+      other.y < s.y && other.y + other.height > s.y - 140);
+    ctx.save();
+    if (higher.length) {
+      ctx.beginPath();
+      ctx.rect(0, 0, width, height);
+      for (const other of higher) ctx.rect(other.x, other.y, other.width, other.height);
+      ctx.clip('evenodd');
+    }
+    if (s.y <= 6) { ctx.restore(); continue; }
     for (let i = 0; i < bins.length; ) {
       while (i < bins.length && (!engine.isExposed(s, s.x + (i + 0.5) * 7) || bins[i] < 0.09)) i++;
       if (i >= bins.length) break;
@@ -20,6 +32,7 @@ export function drawSnow(ctx: CanvasRenderingContext2D, engine: SnowEngine, mask
       while (i < bins.length && engine.isExposed(s, s.x + (i + 0.5) * 7) && bins[i] >= 0.09) i++;
       snowSection(ctx, s, bins, start, i);
     }
+    ctx.restore();
   }
 }
 function drawFlake(ctx: CanvasRenderingContext2D, p: Particle): void {

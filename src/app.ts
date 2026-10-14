@@ -1,6 +1,6 @@
 import { SnowEngine, type Surface } from './physics.ts';
 import { drawSnow, fitCanvas } from './render.ts';
-import { loadSettings, fetchSettings, broadcastSettings, broadcastClearSnow, type AppSettings } from './settings.ts';
+import { loadSettings, saveSettings, fetchSettings, broadcastSettings, broadcastClearSnow, type AppSettings } from './settings.ts';
 import './style.css';
 
 const target = document.querySelector<HTMLDivElement>('#app');
@@ -28,6 +28,7 @@ const scene = document.querySelector<HTMLElement>('#scene')!;
 const canvas = document.querySelector<HTMLCanvasElement>('#preview')!;
 const engine = new SnowEngine(420, 300);
 let config: AppSettings = loadSettings();
+let editRevision = 0;
 
 const PRESETS: Record<string, Partial<AppSettings>> = {
   'Gentle Flurry': { snowfall: 0.35, wind: 0.05, gravity: 0.75, cohesion: 0.55, maxDepth: 20 },
@@ -67,7 +68,7 @@ for (const item of specs) {
   });
 }
 const toggle = document.querySelector<HTMLButtonElement>('#enabled')!;
-function update(): void {
+function update(persist = true): void {
   engine.configure(config);
   toggle.setAttribute('aria-checked', String(config.enabled));
   for (const spec of specs) {
@@ -80,7 +81,10 @@ function update(): void {
     const active = p && Object.entries(p).every(([k, v]) => Math.abs((config as any)[k] - (v as number)) < 0.02);
     chip.classList.toggle('active', !!active);
   }
-  void broadcastSettings(config);
+  if (persist) {
+    editRevision += 1;
+    void broadcastSettings(config);
+  }
 }
 toggle.addEventListener('click', () => { config.enabled = !config.enabled; update(); });
 document.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', () => {
@@ -90,8 +94,14 @@ document.querySelector<HTMLButtonElement>('#clear')!.addEventListener('click', (
   engine.clear();
   void broadcastClearSnow();
 });
-update();
-void fetchSettings().then(loaded => { config = loaded; update(); });
+update(false);
+const hydrationRevision = editRevision;
+void fetchSettings().then(loaded => {
+  if (editRevision !== hydrationRevision) return;
+  config = loaded;
+  saveSettings(loaded);
+  update(false);
+});
 let ctx: CanvasRenderingContext2D;
 const elementRects = () => Array.from(scene.querySelectorAll<HTMLElement>('[data-window]')).map((el, z) => {
   const a = el.getBoundingClientRect(), b = scene.getBoundingClientRect();

@@ -1,4 +1,15 @@
-# Delivery status — 2026-10-14
+# Delivery status — 2026-10-15
+
+## New verified checks (2026-10-15)
+
+- Reconnected RDC, resumed work exclusively in `S:\\snowy_display` with workspace-local scratch and hidden subprocesses.
+- Full test suite: `npm run check` **27/27 PASS**, frontend `npm run build:web` **PASS**.
+- Native `cargo check --release --offline --locked --manifest-path src-tauri/Cargo.toml` **PASS** using the directly installed Rust toolchain, offline Cargo cache and S: target.
+- Regression reproduced: 4/4 occlusion tests failed before the fix, 4/4 passed afterward; no hidden-bin cross-contamination, no occlusion-generated clumps, minimize drops tracked pile quietly, and snow crests clipped behind foreground windows.
+- First-frame overlay and native settings hydration regressions checked within the 27-test suite.
+- Complete source and rationale: `docs/OCCLUSION_FIX_2026-10-15.md`.
+- Existing `README.md` and `.github/workflows/android-apk.yml` were unreadable and later appeared deleted locally; their former dirty bytes were never accessible. Handle recovery transparently, without pretending a remote copy contains lost local changes.
+- GitHub integration PR #2 stays draft. Hardware click-through/occlusion, macOS, Linux, Android endurance and main merge approval remain outstanding.
 
 ## Source of truth
 

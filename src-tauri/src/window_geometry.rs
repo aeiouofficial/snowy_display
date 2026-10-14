@@ -9,6 +9,8 @@ pub struct Surface {
     pub width: f64,
     pub height: f64,
     pub z: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hidden: Option<bool>,
 }
 
 #[tauri::command]
@@ -89,7 +91,12 @@ fn enumerate() -> Vec<Surface> {
     };
     unsafe extern "system" fn walk(hwnd: HWND, value: LPARAM) -> i32 {
         let output = unsafe { &mut *(value as *mut Vec<Surface>) };
-        if unsafe { IsWindowVisible(hwnd) } == 0 || unsafe { IsIconic(hwnd) } != 0 { return 1; }
+        if unsafe { IsIconic(hwnd) } != 0 {
+            output.push(Surface { id: format!("win:{}", hwnd as usize), x: 0.0, y: 0.0,
+                width: 0.0, height: 0.0, z: 0, hidden: Some(true) });
+            return 1;
+        }
+        if unsafe { IsWindowVisible(hwnd) } == 0 { return 1; }
         if !unsafe { GetWindow(hwnd, GW_OWNER) }.is_null() { return 1; }
         // Skip toolwindows / floating palettes
         let ex_style = unsafe { GetWindowLongW(hwnd, GWL_EXSTYLE) as u32 };
@@ -110,7 +117,7 @@ fn enumerate() -> Vec<Surface> {
         if w < 80 || h < 40 { return 1; }
         output.push(Surface { id: format!("win:{}", hwnd as usize),
             x: rect.left as f64, y: rect.top as f64, width: w as f64, height: h as f64,
-            z: -(output.len() as i32), });
+            z: -(output.len() as i32), hidden: None, });
         1
     }
     let mut windows = Vec::new();
@@ -160,7 +167,7 @@ fn enumerate() -> Vec<Surface> {
         let Ok(position) = position.reply() else { continue; };
         windows.push(Surface { id: format!("x11:{id}"), x: position.dst_x as f64,
             y: position.dst_y as f64, width: geom.width as f64, height: geom.height as f64,
-            z: index as i32 });
+            z: index as i32, hidden: None });
     }
     windows
 }
@@ -175,7 +182,7 @@ fn enumerate() -> Vec<Surface> {
     let n = unsafe { sd_copy_window_rects(raw.as_mut_ptr(), CAPACITY) }.min(CAPACITY);
     unsafe { raw.set_len(n); }
     raw.into_iter().map(|w| Surface { id: format!("mac:{}", w.id), x: w.x, y: w.y,
-        width: w.width, height: w.height, z: w.z }).collect()
+        width: w.width, height: w.height, z: w.z, hidden: None }).collect()
 }
 
 #[cfg(any(target_os = "android", target_os = "ios"))]
