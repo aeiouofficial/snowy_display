@@ -112,7 +112,6 @@ document.querySelector<HTMLElement>('#theme-count')!.textContent=`${THEMES.lengt
 const themeSelect=document.querySelector<HTMLSelectElement>('#theme')!;
 const qualitySelect=document.querySelector<HTMLSelectElement>('#quality')!;
 const autoTheme=document.querySelector<HTMLInputElement>('#auto-theme')!;
-const themeDescription=document.querySelector<HTMLElement>('#theme-description')!;
 for(const category of ['Winter','Spring','Summer','Autumn','Weather','Events','Atmosphere']) {
   const group=document.createElement('optgroup');group.label=category;
   for(const t of THEMES.filter(t=>t.category===category)) {
@@ -196,9 +195,8 @@ function update(persist = true): void {
   themeSelect.disabled=config.automaticTheme;
   qualitySelect.value=resolvePerformance(config.performanceMode);
   autoTheme.checked=config.automaticTheme;
-  themeDescription.textContent=theme.description;
   scene.dataset.theme=theme.category.toLowerCase();
-  document.documentElement.style.setProperty('--accent-cyan',theme.accent);
+  document.documentElement.style.setProperty('--accent',theme.accent);
   syncStudio(config,theme);
   const mode=normalizeTool(config.interactionMode);
   for(const button of interactionButtons.querySelectorAll<HTMLButtonElement>('button')) {

@@ -439,7 +439,8 @@ export class SnowEngine {
     }
     if(!this.vehicles.length&&this.time-this.lastPlowTime>=this.plowInterval){
       const pile=[...this.piles.values()].filter(p=>p.surface.width>=170 &&
-        p.surface.y>15 && p.bins.some(v=>v>.25))
+        p.surface.y>15 && p.bins.some((v,i)=>v>.25 &&
+          this.isExposed(p.surface,p.surface.x+Math.min(p.surface.width-.5,(i+.5)*CELL))))
         .sort((a,b)=>b.surface.width-a.surface.width)[0];
       this.lastPlowTime=this.time;
       if(pile)this.vehicles=[{surfaceId:pile.surface.id,x:pile.surface.x-18,

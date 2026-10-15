@@ -111,6 +111,13 @@ Use these acceptance gates in addition to `npm run check`,
 8. Perform real macOS, Linux X11/Wayland-limited preview and Android
    testing before claiming cross-platform hardware parity.
 
+Windows visual QA discovered and fixed a stale `theme-description` reference that
+previously interrupted initialization of the live preview. Added a DOM-contract
+regression test requiring all startup selectors to exist either in the initial
+markup, the app root or the dynamic slider factory. Current complete UI,
+physics and integration suite: **74/74 PASS**, TypeScript and Vite production
+bundle PASS. A new native Windows release is required after this fix.
+
 A compiler, automated tests, headless process smoke or window enumeration
 are not substitutes for the user's **real on-screen** acceptance under
 `AGENTS.md`. Keep `main` untouched until explicitly approved.

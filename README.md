@@ -15,7 +15,7 @@ Open-source snow accumulation on real desktop application windows. Snow builds u
 
 **CI: frontend and Windows/Linux/macOS native cargo checks pass (4/4).** Android APK builds run on feature-branch source changes or via manual workflow dispatch; still unverified until an artifact is produced.
 
-**Status: alpha.** The expanded frontend/physics suite passes 69/69 tests locally; Vite production and Windows native offline release checks pass. Multi-display and new seasonal content are implemented but still require physical runtime acceptance. Hardware window-occlusion acceptance remains outstanding. Live overlay behaviour (click-through, z-order, mixed DPI, fullscreen pause) has **not** yet been verified on real hardware for any OS. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only. Changes are tracked in `CHANGELOG.md`.
+**Status: alpha.** The expanded frontend/physics suite passes 74/74 tests locally; Vite production and Windows native offline release checks pass. Multi-display and new seasonal content are implemented but still require physical runtime acceptance. Hardware window-occlusion acceptance remains outstanding. Live overlay behaviour (click-through, z-order, mixed DPI, fullscreen pause) has **not** yet been verified on real hardware for any OS. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only. Changes are tracked in `CHANGELOG.md`.
 
 ## Shared displays and seasonal atmospheres
 

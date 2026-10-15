@@ -16,7 +16,7 @@
 - Extended backward-compatible native settings for scenery density/size,
   motion, object visibility, plow mode and interval, with live slider
   previews; dedicated Canvas2D feature and regression tests.
-- Integration test count: 69 tests covering prior snow physics, full-screen
+- Integration test count: 74 tests covering prior snow physics, full-screen
   occlusion, duplicate process, new seasons, animated motifs, settings
   persistence and plow conservation. See docs/SCENE_STUDIO_2026-10-15.md.
 - Real hardware visual acceptance and installer signing remain open;

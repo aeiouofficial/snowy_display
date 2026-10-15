@@ -8,7 +8,7 @@
 - Added physically snow-displacing autonomous plow vehicles (optional,
   adjustable interval), plow rendering, animation/density/size controls,
   reduce-motion and backward-compatible saved settings.
-- TypeScript/frontend regression run **69/69 PASS**; fresh native release
+- TypeScript/frontend regression run **74/74 PASS**; fresh native release
   and screenshot/hardware visual gate tracked separately.
 - Detailed source design and acceptance criteria:
   docs/SCENE_STUDIO_2026-10-15.md.

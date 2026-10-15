@@ -26,7 +26,7 @@ const FEATURES:Record<string,readonly MotifKind[]>={
   'spring-meadow':['bee','butterfly','flower'],
   'spring-rainbow':['rainbow','cloud','bird'],
   'summer-fireflies':['firefly','moon','pine'],
-  'summer-showers':['cloud','rainbow','lightning'],
+  'summer-showers':['cloud','lightning'],
   'summer-stargaze':['meteor','moon','star'],
   'summer-bees':['bee','flower','sun'],
   'summer-kite':['kite','sun','cloud'],
@@ -42,7 +42,7 @@ const FEATURES:Record<string,readonly MotifKind[]>={
   'ambient-embers':['lantern','star'],
   'ambient-cosmos':['meteor','moon','star'],
   'ambient-moonlight':['moon','star','cloud'],
-  'weather-thunder':['cloud','lightning','rainbow'],
+  'weather-thunder':['cloud','lightning'],
   'weather-fog':['mist','cloud','pine'],
   'weather-drizzle':['cloud','rainbow','flower'],
   'weather-windy':['kite','branch','cloud'],
@@ -80,9 +80,15 @@ export function sceneMotifs(
   // Restrained scenes: detail is peripheral, never a full opaque overlay.
   const extra=count*(motifs.length>2?1:1.15);
   const allowed=Math.floor(extra*factor);
+  const countByKind=new Map<MotifKind,number>();
+  const motifCaps:Partial<Record<MotifKind,number>>={
+    rainbow:1,moon:1,sun:1,aurora:1,kite:1,firework:3,lightning:2,
+  };
   for(let i=0;i<allowed;i++){
     const kind=motifs[(i*7+Math.floor(i/3))%motifs.length];
     if(isAdvent && kind==='candle')continue;
+    if((countByKind.get(kind)||0)>=(motifCaps[kind]??99))continue;
+    countByKind.set(kind,(countByKind.get(kind)||0)+1);
     const f=seeded(i+id.length*19),g=seeded(i*1.67+id.length*7);
     const widthPad=22;
     let x=widthPad+f*(width-widthPad*2);

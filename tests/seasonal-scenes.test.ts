@@ -28,6 +28,16 @@ test('all four seasons and weather/event content packs expose nonparticle animat
   assert.ok(sceneMotifs(name,640,400,20,1).length>0,name);
  }
 });
+test('large scenic motifs never overlap by redundant duplication in downpours or spring rain',()=>{
+ const rain=sceneMotifs('summer-showers',520,245,14,1);
+ assert.equal(rain.filter(x=>x.kind==='rainbow').length,0,
+  'heavy summer rain cannot have repeated decorative rainbows');
+ const spring=sceneMotifs('spring-rain',520,245,14,1);
+ assert.ok(spring.filter(x=>x.kind==='rainbow').length<=1);
+ const skies=sceneMotifs('winter-northernlights',1920,1080,14,1);
+ assert.ok(skies.filter(x=>x.kind==='aurora').length<=1);
+});
+
 test('four Advent scenes animate exactly 1, 2, 3, 4 candles',()=>{
  for(let week=1;week<=4;week++){
   const m=sceneMotifs('advent-'+week,1080,650,3.2,1);
@@ -70,6 +80,19 @@ test('auto plows are winter-only, optional, and cleared on window disappearance'
  for(let i=0;i<400;i++)e.step(1/30);
  assert.equal(e.snapshot().vehicles.length,0);
 });
+test('automatic snowplows never spawn on a fully covered snowy application',()=>{
+ const e=stocked();
+ const cover={id:'covering',x:0,y:40,width:500,height:210,z:11};
+ e.setSurfaces([windowSurface,cover]);
+ e.configureActors({autoPlows:true,plowInterval:7});
+ for(let i=0;i<330;i++)e.step(1/30);
+ assert.equal(e.snapshot().vehicles.length,0,
+  'snow concealed by a higher window must not attract a ghost plow');
+ e.setSurfaces([windowSurface]);
+ for(let i=0;i<340;i++)e.step(1/30);
+ assert.ok(e.snapshot().vehicles.length>0,'the same snow can be plowed after uncovering');
+});
+
 test('new settings default to minimal animation load and preserve legacy saved values',()=>{
  assert.equal(DEFAULT_APP_SETTINGS.autoPlows,false);
  assert.ok(DEFAULT_APP_SETTINGS.decorationDensity>0);
