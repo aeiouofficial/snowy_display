@@ -14,6 +14,7 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -167,6 +168,7 @@ private class WeatherCanvas(service:Service):View(service) {
   scenery=i.getBooleanExtra("showSceneObjects",true)
   quality=i.getStringExtra("performanceMode")?:"balanced"
   if(!accumulating)clearSnow()
+  Log.i("SnowyOverlaySettings","theme=$theme mode=$mode rate=$snowRate density=$density gravity=$gravity autoPlows=$plows quality=$quality")
   invalidate()
  }
  private fun paint(color:Int=primary,alpha:Int=200,stroke:Float=1f,style:Paint.Style=Paint.Style.FILL){
@@ -394,9 +396,10 @@ private class WeatherCanvas(service:Service):View(service) {
   // in-app preview. Render at most two lightweight atmospheric accents here.
   val features=motifs().filter{it in setOf(
    "aurora","lightning","rainbow","firework","meteor","butterfly",
-   "bee","bird","kite","bat","firefly","moon","sun","cloud","lights","mist")}
+   "bee","bird","kite","bat","firefly","moon","sun","cloud","lights","mist",
+   "candles","star","lantern","pumpkin","leaf","acorn","flower")}
   if(features.isEmpty())return
-  val maxDraw=(2*density).toInt().coerceIn(0,2)
+  val maxDraw=(5*density).toInt().coerceIn(0,5)
   val t=if(animations&&!reducedMotion)elapsed else 0f
   for(i in 0 until maxDraw){
    val k=features[i%features.size]
@@ -414,7 +417,14 @@ private class WeatherCanvas(service:Service):View(service) {
  private fun drawParticles(c:Canvas,w:Float,h:Float,dt:Float){
   // Mobile compositor budget: no 150-particle + 60 FPS full-screen path.
   val limit=when(quality){"eco"->22;"high"->72;else->40}
-  val desired=(limit*intensity*snowRate).toInt().coerceIn(0,limit)
+  // Snowfall is a precipitation rate, NOT a global visibility knob.
+  // With snowfall at zero, leaves, stars, lanterns, bees and fireflies
+  // must remain visible. Decoration density independently controls those.
+  val activityRate=when(mode){
+   "snow","rain"->snowRate
+   else->(.45f+.55f*density)
+  }
+  val desired=(limit*intensity*activityRate).toInt().coerceIn(0,limit)
   while(particles.size>desired)particles.removeAt(particles.lastIndex)
   while(particles.size<desired)particles.add(Particle(
    rng.nextFloat()*w,

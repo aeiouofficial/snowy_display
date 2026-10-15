@@ -208,13 +208,17 @@ let nativeUpdateRevision=0;
 let nativeUpdateInFlight=false;
 let nativeUpdateTimer:ReturnType<typeof setTimeout>|null=null;
 async function flushNativeOverlayUpdates():Promise<void>{
- if(nativeUpdateInFlight||!isAndroid||!overlayRunning)return;
+ // The native service may already be active even while JS still has the
+ // previous asynchronous start() response (running=false). Never suppress
+ // scene/slider changes on that stale client-side flag.
+ if(nativeUpdateInFlight||!isAndroid)return;
  nativeUpdateInFlight=true;
  try {
-  while(overlayRunning){
+  while(isAndroid){
    const revision=nativeUpdateRevision;
    try {
-    await androidOverlayAction('update');
+    const result=await androidOverlayAction('update');
+    displayOverlayStatus(result);
    }catch(err){
     console.warn('[snowy] Android overlay settings update failed',err);
     overlayStatus.textContent='Native weather update failed. Use Start weather to retry.';
@@ -227,7 +231,7 @@ async function flushNativeOverlayUpdates():Promise<void>{
  }
 }
 function scheduleOverlayUpdate():void{
- if(!isAndroid||!overlayRunning)return;
+ if(!isAndroid)return;
  nativeUpdateRevision++;
  // Changes made during a slider drag should coalesce into one native IPC
  // update, not dozens of Android service restarts/notifications per second.
@@ -263,6 +267,9 @@ async function startAndroidOverlay():Promise<void>{
    }
   } else displayOverlayStatus(state);
   window.setTimeout(()=>{void refreshOverlayStatus()},350);
+ // startForegroundService returns before onStartCommand and addView finish.
+ // One extra delayed read handles the Android/MIUI asynchronous start gate.
+ window.setTimeout(()=>{void refreshOverlayStatus()},1100);
  }catch(err){overlayStatus.textContent='Could not start weather: '+String(err);}
  finally {
   overlayActionBusy=false;
@@ -419,7 +426,7 @@ function update(persist = true): void {
   }
   // Forward EVERY setting (not only precipitation) to the native Android
   // service, which renders above other applications with the same scene ID.
-  if (isAndroid && overlayRunning) scheduleOverlayUpdate();
+  if (isAndroid) scheduleOverlayUpdate();
   if (persist) {
     editRevision += 1;
     void broadcastSettings(config);

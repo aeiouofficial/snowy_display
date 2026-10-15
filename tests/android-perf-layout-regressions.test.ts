@@ -12,7 +12,9 @@ test('natural snow and blizzard have no pine tree decorations',()=>{
 });
 test('native full-screen Android overlay limits props to subtle weather accents',()=>{
  assert.match(native,/features=motifs\(\)\.filter\{it in setOf\(/);
- assert.match(native,/maxDraw=\(2\*density\)/);
+ // A handful of themed accents are permitted, but default snow must remain clear.
+ assert.match(native,/maxDraw=\(5\*density\)\.toInt\(\)\.coerceIn\(0,5\)/);
+ assert.doesNotMatch(native,/"winter-snow"->listOf\("pine"\)/);
  assert.match(native,/"winter-snow"->listOf\("crystal"\)/);
  assert.doesNotMatch(native,/val features=motifs\(\)\n  if\(features\.isEmpty\(\)\)/);
 });
