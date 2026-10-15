@@ -65,7 +65,7 @@ test('renderer clips underlying snow crests against a foreground window even abo
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'Path2D');
   class MockPath {moveTo(){} lineTo(){} quadraticCurveTo(){} closePath(){}}
   Object.defineProperty(globalThis,'Path2D',{configurable:true,value:MockPath});
-  try { drawSnow(ctx, engine, false); }
+  try { drawSnow(ctx, engine, false, 'winter-snow', {showSceneObjects:false}); }
   finally { if(previous) Object.defineProperty(globalThis,'Path2D',previous); else Reflect.deleteProperty(globalThis,'Path2D'); }
   assert.ok(records.some(r => r.name === 'rect' && r.args[0] === front.x && r.args[1] === front.y),
     'foreground bounds must be registered as a snow-pile clipping hole');
@@ -96,7 +96,7 @@ test('intersecting foreground windows cannot toggle the rear snow mask back on',
   const original = Object.getOwnPropertyDescriptor(globalThis, 'Path2D');
   class MockPath { moveTo(){} lineTo(){} quadraticCurveTo(){} closePath(){} }
   Object.defineProperty(globalThis, 'Path2D', { configurable: true, value: MockPath });
-  try { drawSnow(ctx, e, false); }
+  try { drawSnow(ctx, e, false, 'winter-snow', {showSceneObjects:false}); }
   finally {
     if (original) Object.defineProperty(globalThis, 'Path2D', original);
     else Reflect.deleteProperty(globalThis, 'Path2D');

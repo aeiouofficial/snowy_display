@@ -5,57 +5,115 @@ import { THEMES } from './themes.ts';
 import { PERFORMANCE, resolvePerformance } from './desktop-world.ts';
 import { activeTheme, DEFAULT_APP_SETTINGS } from './settings.ts';
 import { INTERACTION_TOOLS, normalizeTool } from './interactions.ts';
+import { installStudioUI } from './studio-ui.ts';
 import './style.css';
 
 const target = document.querySelector<HTMLDivElement>('#app');
 if (!target) throw new Error('App root missing');
-target.innerHTML = `
-  <main class="app-shell">
-    <header class="header"><div class="brandmark" aria-hidden="true">✳</div><div><h1>Snowy Display</h1><p>Real snow. Real surfaces.</p></div><span class="version">ALPHA 0.1</span></header>
-    <section class="visual"><div class="preview-head"><span class="live-dot"></span> LIVE PHYSICS PREVIEW <span class="preview-hint">Drag the windows</span></div>
-      <div id="scene" class="scene"><div class="sky-glow"></div>
-        <div class="fake-window one" data-window="front"><div class="win-head"><b>Explorer</b><span>— □ ×</span></div><div class="win-inner"><span class="fake-line wide"></span><span class="fake-line"></span><span class="fake-line small"></span></div></div>
-        <div class="fake-window two" data-window="back"><div class="win-head"><b>Notes</b><span>— □ ×</span></div><div class="win-inner"><span class="fake-line"></span><span class="fake-line wide"></span></div></div>
-        <canvas id="preview" aria-label="Live interactive snow physics simulation"></canvas>
-      </div>
-    </section>
-    <section class="environment-controls" aria-label="Seasonal and weather themes">
-      <div class="section-title"><h2>Atmosphere & seasons</h2><span class="content-count" id="theme-count">Theme catalog</span></div>
-      <div class="environment-grid">
-        <label class="environment-field" for="theme"><span>Theme collection</span><select id="theme"></select></label>
-        <label class="environment-field" for="quality"><span>Performance</span><select id="quality">
-          <option value="eco">Eco · 24 FPS</option><option value="balanced">Balanced · 36 FPS</option>
-          <option value="high">High · 60 FPS</option>
-        </select></label>
-      </div>
-      <div id="theme-description" class="environment-description" aria-live="polite"></div>
-      <label class="calendar-row" for="auto-theme"><input type="checkbox" id="auto-theme" />
-        <span>Automatic seasonal calendar<small>Halloween, Advent weeks 1–4, Christmas, New Year & seasons</small></span>
-      </label>
-      <p class="content-note">Only snow themes accumulate. Other effects stay airborne and never build up on windows.</p>
-    </section>
-    <section class="interaction-controls" aria-label="Reactive snow tools and spells">
-      <div class="section-title"><h2>Reactive snow &amp; spells</h2>
-        <span class="content-count">Live interactions</span></div>
-      <div id="interaction-tools" class="interaction-grid" role="group" aria-label="Choose snow interaction"></div>
-      <div id="interaction-description" class="interaction-description" aria-live="polite"></div>
-      <p class="content-note">Move the cursor through actual snow, or use the draggable preview. Snow tools need an exposed snow-covered edge. Effects are click-through on your desktop.</p>
-    </section>
-    <section class="controls" aria-label="Snow physics settings">
-      <div class="section-title"><h2>Snow simulation</h2><button class="toggle" id="enabled" role="switch" aria-checked="true" aria-label="Toggle snowfall"><span></span></button></div>
-      <div class="preset-bar" id="presets"></div>
-      <div id="sliders"></div>
-      <div class="actions"><button id="reset" class="secondary">Restore defaults</button><button id="clear" class="secondary">Clear snow</button></div>
-    </section>
-    <footer><span>Native desktop overlays: Windows · macOS · Linux X11</span><span>Mobile: in-app preview</span></footer>
-  </main>`;
+target.innerHTML = `<main class="app-shell">
+<header class="header">
+ <div class="brandmark" aria-hidden="true">✳</div>
+ <div class="brandcopy"><h1>Snowy Display</h1><p>ATMOSPHERE STUDIO</p></div>
+ <div class="live-status"><span class="live-dot"></span><span id="runtime-status">LIVE</span></div>
+</header>
+<section class="visual" aria-label="Animated weather preview">
+ <div class="preview-head"><span>LIVE ENVIRONMENT</span><span class="preview-hint">Drag windows · interact with snow</span></div>
+ <div id="scene" class="scene"><div class="sky-glow"></div>
+  <div class="fake-window one" data-window="front"><div class="win-head"><b>Explorer</b><span>− □ ×</span></div>
+   <div class="win-inner"><span class="fake-line wide"></span><span class="fake-line"></span><span class="fake-line small"></span></div></div>
+  <div class="fake-window two" data-window="back"><div class="win-head"><b>Notes</b><span>− □ ×</span></div>
+   <div class="win-inner"><span class="fake-line"></span><span class="fake-line wide"></span></div></div>
+  <canvas id="preview" aria-label="Live animated seasonal scene"></canvas>
+ </div>
+ <div class="scene-caption"><div><span id="scene-category">WINTER COLLECTION</span>
+  <h2 id="scene-name">Natural Snow</h2><p id="scene-description">Live seasonal scenery and weather physics</p></div>
+  <span id="scene-running" class="scene-running">ACTIVE</span></div>
+</section>
+<nav id="studio-tabs" class="studio-tabs" role="tablist" aria-label="Studio sections">
+ <button type="button" data-tab="scenes" id="tab-scenes" role="tab" aria-controls="panel-scenes" aria-selected="true"><span class="tab-symbol">◈</span>Scenes</button>
+ <button type="button" data-tab="physics" id="tab-physics" role="tab" aria-controls="panel-physics" aria-selected="false"><span class="tab-symbol">❄</span>Physics</button>
+ <button type="button" data-tab="activity" id="tab-activity" role="tab" aria-controls="panel-activity" aria-selected="false"><span class="tab-symbol">✦</span>Activity</button>
+ <button type="button" data-tab="system" id="tab-system" role="tab" aria-controls="panel-system" aria-selected="false"><span class="tab-symbol">⚙</span>System</button>
+</nav>
+<section id="panel-scenes" class="studio-panel" role="tabpanel" aria-labelledby="tab-scenes">
+ <div class="panel-heading"><span class="eyebrow">CURATED CONTENT</span>
+  <div class="heading-row"><h2>Seasons & weather</h2><span id="theme-count" class="content-count">Scenes</span></div>
+  <p>Seasonal animations, weather moods and special events — not just recolored snowfall.</p></div>
+ <div id="category-filters" class="category-filters" role="group" aria-label="Filter scene categories"></div>
+ <label class="search-scenes"><span aria-hidden="true">⌕</span><input type="search" id="theme-search" placeholder="Search the library…" aria-label="Search the theme library"></label>
+ <div id="theme-gallery" class="theme-gallery" aria-label="Available environments"></div>
+ <div class="settings-block">
+  <h3>Seasonal automation</h3>
+  <label class="switch-line"><span><strong>Follow the calendar</strong><small>Automatically switch to the right season, Halloween, Advent, Christmas and New Year</small></span>
+   <input id="auto-theme" type="checkbox" role="switch"><span class="switch-track"></span></label>
+  <label class="hidden-select"><span>All environments</span><select id="theme"></select></label>
+ </div>
+ <div class="settings-block"><h3>Scene illustrations</h3>
+  <label class="switch-line"><span><strong>Seasonal objects</strong><small>Flowers, animals, clouds, lights, stars and holiday decoration</small></span>
+   <input id="scene-objects" type="checkbox" role="switch"><span class="switch-track"></span></label>
+  <label class="switch-line"><span><strong>Animate the scenery</strong><small>Wingbeats, travelling clouds, auroras, flames and lanterns</small></span>
+   <input id="scene-animations" type="checkbox" role="switch"><span class="switch-track"></span></label>
+  <div id="scenery-sliders" class="extra-sliders"></div>
+ </div>
+</section>
+<section id="panel-physics" class="studio-panel" role="tabpanel" aria-labelledby="tab-physics" hidden>
+ <div class="panel-heading"><span class="eyebrow">PHYSICAL ACCUMULATION</span>
+  <div class="heading-row"><h2>Snow dynamics</h2>
+   <button class="toggle" id="enabled" role="switch" aria-checked="true" aria-label="Toggle desktop precipitation"><span></span></button></div>
+  <p>Real deposition on exposed window edges, granular settling, wind and physical sliding.</p></div>
+ <div class="settings-block"><h3>Quick presets</h3><div class="preset-bar" id="presets"></div></div>
+ <div class="settings-block"><h3>Fine adjustments</h3><div id="sliders"></div></div>
+ <div class="info-strip">Minimized and fully covered windows never accumulate snow or shed ghost clumps. Rain, petals and leaves do not form snowdrifts.</div>
+</section>
+<section id="panel-activity" class="studio-panel" role="tabpanel" aria-labelledby="tab-activity" hidden>
+ <div class="panel-heading"><span class="eyebrow">REACTIVE DESKTOP</span>
+  <div class="heading-row"><h2>Activities & spells</h2><span class="content-count">7 tools</span></div>
+  <p>Footprints, snow displacement and magic gestures interact with real surfaces.</p></div>
+ <div class="settings-block"><h3>Pointer tools</h3>
+  <div id="interaction-tools" class="interaction-grid" role="group" aria-label="Select an interactive tool"></div>
+  <div id="interaction-description" class="interaction-description" aria-live="polite"></div>
+ </div>
+ <div class="settings-block">
+  <h3>Autonomous snowplows</h3>
+  <p class="block-note">Animated maintenance vehicles drive over snow-covered exposed ledges and shift existing snow into natural piles.</p>
+  <label class="switch-line"><span><strong>Snowplow vehicles</strong><small>Physical winter activity · Does not intercept desktop clicks</small></span>
+   <input id="auto-plows" type="checkbox" role="switch"><span class="switch-track"></span></label>
+  <div id="plow-sliders" class="extra-sliders"></div>
+ </div>
+</section>
+<section id="panel-system" class="studio-panel" role="tabpanel" aria-labelledby="tab-system" hidden>
+ <div class="panel-heading"><span class="eyebrow">DISPLAY & PERFORMANCE</span>
+  <div class="heading-row"><h2>System settings</h2><span class="content-count">ALL MONITORS</span></div>
+  <p>One shared desktop simulation, performance controls and accessible motion options.</p></div>
+ <div class="settings-block"><h3>Performance profile</h3>
+  <div class="environment-field"><label for="quality">Render quality</label><select id="quality">
+   <option value="eco">Eco · 24 frames/sec</option>
+   <option value="balanced">Balanced · 36 frames/sec</option>
+   <option value="high">High · 60 frames/sec</option></select></div>
+  <div id="quality-options" class="quality-cards"></div></div>
+ <div class="settings-block"><h3>Accessibility</h3>
+  <label class="switch-line"><span><strong>Reduce movement</strong><small>Keep scenery while suppressing decorative animation</small></span>
+   <input id="reduced-motion" type="checkbox" role="switch"><span class="switch-track"></span></label>
+ </div>
+ <div class="settings-block"><h3>Desktop integration</h3>
+  <div class="system-row"><span>Monitor topology</span><strong>Automatic</strong></div>
+  <div class="system-row"><span>Overlay input</span><strong>Click-through</strong></div>
+  <div class="system-row"><span>Scene data</span><strong>Stored locally</strong></div>
+  <p class="block-note">Linux Wayland security restricts global overlays; the app preview remains usable.</p></div>
+ <div class="settings-block"><h3>Maintenance</h3>
+  <div class="actions"><button id="clear" class="secondary">Clear snow</button>
+   <button id="reset" class="secondary danger">Restore defaults</button></div>
+ </div>
+</section>
+<footer><span>Snowy Display · Atmosphere Studio</span><span>Windows · Linux · macOS · mobile preview</span></footer>
+</main>`;
 
 document.querySelector<HTMLElement>('#theme-count')!.textContent=`${THEMES.length} environments`;
 const themeSelect=document.querySelector<HTMLSelectElement>('#theme')!;
 const qualitySelect=document.querySelector<HTMLSelectElement>('#quality')!;
 const autoTheme=document.querySelector<HTMLInputElement>('#auto-theme')!;
 const themeDescription=document.querySelector<HTMLElement>('#theme-description')!;
-for(const category of ['Winter','Spring','Summer','Autumn','Events','Atmosphere']) {
+for(const category of ['Winter','Spring','Summer','Autumn','Weather','Events','Atmosphere']) {
   const group=document.createElement('optgroup');group.label=category;
   for(const t of THEMES.filter(t=>t.category===category)) {
     const option=document.createElement('option');option.value=t.id;option.textContent=t.name;
@@ -84,6 +142,11 @@ const canvas = document.querySelector<HTMLCanvasElement>('#preview')!;
 const engine = new SnowEngine(420, 300);
 let config: AppSettings = loadSettings();
 let editRevision = 0;
+const syncStudio=installStudioUI((partial,persist=true)=>{
+  config={...config,...partial};
+  if(!persist)editRevision+=1;
+  update(persist);
+ });
 
 const PRESETS: Record<string, Partial<AppSettings>> = {
   'Gentle Flurry': { snowfall: 0.35, wind: 0.05, gravity: 0.75, cohesion: 0.55, maxDepth: 20 },
@@ -128,6 +191,7 @@ function update(persist = true): void {
   const theme=activeTheme(config);
   engine.setTheme(theme.id);
   engine.setParticleLimit(PERFORMANCE[resolvePerformance(config.performanceMode)].particles);
+  engine.configureActors({autoPlows:config.autoPlows,plowInterval:config.plowInterval});
   themeSelect.value=theme.id;
   themeSelect.disabled=config.automaticTheme;
   qualitySelect.value=resolvePerformance(config.performanceMode);
@@ -135,6 +199,7 @@ function update(persist = true): void {
   themeDescription.textContent=theme.description;
   scene.dataset.theme=theme.category.toLowerCase();
   document.documentElement.style.setProperty('--accent-cyan',theme.accent);
+  syncStudio(config,theme);
   const mode=normalizeTool(config.interactionMode);
   for(const button of interactionButtons.querySelectorAll<HTMLButtonElement>('button')) {
     const active=button.dataset.tool===mode;
@@ -211,7 +276,7 @@ function animate(now: number): void {
     for(let remaining=dt;remaining>0;) {
       const step=Math.min(1/30,remaining);engine.step(step);remaining-=step;
     }
-    drawSnow(ctx,engine,false,activeTheme(config).id);
+    drawSnow(ctx,engine,false,activeTheme(config).id,config);
   } else ctx.clearRect(0, 0, engine.width, engine.height);
 }
 sizePreview(); requestAnimationFrame(animate);

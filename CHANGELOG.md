@@ -1,3 +1,27 @@
+## 2026-10-15 — Seasonal Scene Studio & autonomous plow vehicles
+
+- Rebuilt the control UI into four compact non-modal tabs (Scenes, Physics,
+  Activity, System) with a category-filtered/searchable scene library,
+  keyboard-accessible tab navigation and quality profile selections.
+- Expanded from 21 to **38 scenes** with seven groups covering all four
+  seasons, actual weather moods, two Halloween scenes, four Advent scenes
+  with progressively one-to-four *illustrated animated candles*, Christmas,
+  New Year, Easter, Valentine, moonlight and cosmic ambience.
+- Added animated transparent scenery: trees, flowers, butterflies, bees,
+  birds, aurora, icicles, clouds, rainbows, kites, pumpkins, lanterns,
+  candles, fairy lights, lightning, meteors and fireworks (procedural,
+  deterministic scene objects rather than particle recoloring).
+- Added optional tiny autonomous snowplow vehicles with physical heightfield
+  mass transfer, surface/z-order safety, timed routes and persisted interval.
+- Extended backward-compatible native settings for scenery density/size,
+  motion, object visibility, plow mode and interval, with live slider
+  previews; dedicated Canvas2D feature and regression tests.
+- Integration test count: 69 tests covering prior snow physics, full-screen
+  occlusion, duplicate process, new seasons, animated motifs, settings
+  persistence and plow conservation. See docs/SCENE_STUDIO_2026-10-15.md.
+- Real hardware visual acceptance and installer signing remain open;
+  no permission to merge main without explicit user signoff.
+
 # Changelog
 
 All notable changes to this project are documented here.

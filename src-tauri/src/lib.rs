@@ -19,7 +19,25 @@ pub struct AppSettings {
     pub performance_mode: String,
     #[serde(default = "default_interaction_mode")]
     pub interaction_mode: String,
+    #[serde(default="default_true")]
+    pub animations_enabled:bool,
+    #[serde(default="default_density")]
+    pub decoration_density:f64,
+    #[serde(default="default_visual_scale")]
+    pub visual_scale:f64,
+    #[serde(default)]
+    pub reduce_motion:bool,
+    #[serde(default="default_true")]
+    pub show_scene_objects:bool,
+    #[serde(default)]
+    pub auto_plows:bool,
+    #[serde(default="default_plow_interval")]
+    pub plow_interval:f64,
 }
+fn default_true()->bool{true}
+fn default_density()->f64{0.72}
+fn default_visual_scale()->f64{1.0}
+fn default_plow_interval()->f64{20.0}
 fn default_interaction_mode() -> String { "none".into() }
 fn default_theme_id() -> String { "winter-snow".into() }
 fn default_performance_mode() -> String { "balanced".into() }
@@ -37,6 +55,13 @@ impl Default for AppSettings {
             automatic_theme: false,
             performance_mode: default_performance_mode(),
             interaction_mode: default_interaction_mode(),
+            animations_enabled:default_true(),
+            decoration_density:default_density(),
+            visual_scale:default_visual_scale(),
+            reduce_motion:false,
+            show_scene_objects:true,
+            auto_plows:false,
+            plow_interval:default_plow_interval(),
         }
     }
 }

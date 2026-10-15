@@ -55,6 +55,7 @@ function apply(next:AppSettings):void {
   engine.configure(config);
   engine.setTheme(theme.id);
   engine.setParticleLimit(PERFORMANCE[resolvePerformance(config.performanceMode)].particles);
+  engine.configureActors({autoPlows:config.autoPlows,plowInterval:config.plowInterval});
 }
 apply(config);
 void fetchSettings().then(apply).catch(error=>console.warn('[snowy] settings hydrate',error));
@@ -185,7 +186,7 @@ function frame(now:number):void {
   // Independent DPI is a *draw transform*, not a separate physics grid.
   ctx.scale(innerWidth/viewport.width,innerHeight/viewport.height);
   ctx.translate(-viewport.x,-viewport.y);
-  drawScene(ctx,lastScene,sourceWorld.width,sourceWorld.height,theme,viewport,false);
+  drawScene(ctx,lastScene,sourceWorld.width,sourceWorld.height,theme,viewport,false,config);
   ctx.restore();
   if(!shown) {
     shown=true;

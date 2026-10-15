@@ -1,18 +1,22 @@
 import type { Particle, SnowEngine, Surface } from './physics.ts';
 import { resolveTheme, type WeatherTheme } from './themes.ts';
 import type { Viewport } from './desktop-world.ts';
+import {renderSeasonalScenery,drawSnowplow,type SceneVisualOptions} from './seasonal-render.ts';
 
 export type SnowScene = ReturnType<SnowEngine['snapshot']>;
-export function drawSnow(ctx:CanvasRenderingContext2D, engine:SnowEngine, maskWindows=false, themeId='winter-snow'):void {
-  drawScene(ctx,engine.snapshot(),engine.width,engine.height,resolveTheme(themeId),undefined,maskWindows);
+export function drawSnow(ctx:CanvasRenderingContext2D, engine:SnowEngine, maskWindows=false, themeId='winter-snow',
+  visuals:Partial<SceneVisualOptions>={}):void {
+  drawScene(ctx,engine.snapshot(),engine.width,engine.height,resolveTheme(themeId),undefined,maskWindows,visuals);
 }
 /** Paint only the monitor's viewport of ONE shared desktop simulation. Coordinates are physical. */
 export function drawScene(ctx:CanvasRenderingContext2D, scene:SnowScene, width:number,height:number,
-  theme:WeatherTheme, viewport?:Viewport, maskWindows=false):void {
+  theme:WeatherTheme, viewport?:Viewport, maskWindows=false,
+  visuals:Partial<SceneVisualOptions>={}):void {
   ctx.clearRect(0,0,width,height);
   const visible=(x:number,y:number,r=8) => !viewport ||
     x+r>=viewport.x && x-r<=viewport.x+viewport.width &&
     y+r>=viewport.y && y-r<=viewport.y+viewport.height;
+  renderSeasonalScenery(ctx,theme.id,width,height,scene.time,visuals,viewport);
   for(const p of scene.flakes) if(visible(p.x,p.y,p.radius*2)) drawEffect(ctx,p,theme);
   if(theme.accumulating) {
     for(const p of scene.clumps) if(visible(p.x,p.y,p.radius*3)) drawClump(ctx,p);
@@ -66,6 +70,11 @@ export function drawScene(ctx:CanvasRenderingContext2D, scene:SnowScene, width:n
           ctx.fill();
         }
         ctx.restore();
+      }
+      for(const vehicle of scene.vehicles) {
+        if(vehicle.surfaceId!==s.id || !visible(vehicle.x,vehicle.y,vehicle.size*2) ||
+          !exposed(vehicle.x+vehicle.size*.4))continue;
+        drawSnowplow(ctx,vehicle,visuals.animationsEnabled!==false&&visuals.reduceMotion!==true);
       }
       ctx.restore();
     }

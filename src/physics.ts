@@ -3,6 +3,7 @@ export interface Surface { id: string; x: number; y: number; width: number; heig
 export interface Settings { snowfall: number; wind: number; gravity: number; cohesion: number; maxDepth: number }
 export interface Particle { x: number; y: number; vx: number; vy: number; radius: number; opacity: number; mass: number }
 export interface Pile { surface: Surface; bins: number[]; exposed?: boolean[] }
+export interface PlowVehicle {surfaceId:string;x:number;y:number;direction:1|-1;phase:number;size:number}
 export interface SnowImprint {x:number;y:number;surfaceId:string;type:'footprint'|'push';at:number;radius:number}
 export interface SpellPulse {x:number;y:number;type:'gust'|'vortex'|'freeze'|'melt';at:number;radius:number}
 interface InternalPile { surface: Surface; bins: Float32Array; lastSeen: number }
@@ -50,6 +51,10 @@ export class SnowEngine {
   private imprints:SnowImprint[]=[];
   private pulses:SpellPulse[]=[];
   private frozenUntil=0;
+  private vehicles:PlowVehicle[]=[];
+  private autoPlows=false;
+  private plowInterval=20;
+  private lastPlowTime=0;
   private footprintParity=0;
   private previousSurfaceUpdate = 0;
   private mouseX = -9999;
@@ -72,12 +77,18 @@ export class SnowEngine {
     if(this.particleMode===t.particle && this.themeDensity===t.intensity) return;
     this.particleMode=t.particle;
     this.themeDensity=t.intensity;
-    this.flakes=[];
-    this.clumps=[];
     this.imprints=[];
     this.pulses=[];
+    this.vehicles=[];
     this.frozenUntil=0;
     for(const pile of this.piles.values()) pile.bins.fill(0);
+  }
+  configureActors(options:{autoPlows:boolean;plowInterval:number}):void {
+    const enable=options.autoPlows===true;
+    if(!enable)this.vehicles=[];
+    if(enable&&!this.autoPlows)this.lastPlowTime=this.time;
+    this.autoPlows=enable;
+    this.plowInterval=clamp(Number.isFinite(options.plowInterval)?options.plowInterval:20,7,180);
   }
   setParticleLimit(count: number): void {
     this.particleLimit=clamp(Math.floor(count),100,MAX_FLAKES);
@@ -146,6 +157,7 @@ export class SnowEngine {
       }
     }
     this.surfaces = ordered;
+    this.vehicles=this.vehicles.filter(vehicle=>this.piles.has(vehicle.surfaceId));
     this.coveredBy.clear();
     for(const surface of ordered) {
       const intervals=ordered.filter(upper=>upper.z>surface.z &&
@@ -420,6 +432,48 @@ export class SnowEngine {
       }
     }
   }
+  /** Tiny automated snowplow follows an exposed ledge and conserves snow mass. */
+  private advancePlows(dt:number):void {
+    if(!this.autoPlows||this.particleMode!=='snow'){
+      this.vehicles=[];return;
+    }
+    if(!this.vehicles.length&&this.time-this.lastPlowTime>=this.plowInterval){
+      const pile=[...this.piles.values()].filter(p=>p.surface.width>=170 &&
+        p.surface.y>15 && p.bins.some(v=>v>.25))
+        .sort((a,b)=>b.surface.width-a.surface.width)[0];
+      this.lastPlowTime=this.time;
+      if(pile)this.vehicles=[{surfaceId:pile.surface.id,x:pile.surface.x-18,
+        y:pile.surface.y-13,direction:1,phase:0,size:26}];
+    }
+    for(const vehicle of this.vehicles){
+      const pile=this.piles.get(vehicle.surfaceId);
+      if(!pile)continue;
+      vehicle.x+=35*dt*vehicle.direction;
+      vehicle.y=pile.surface.y-13;
+      vehicle.phase+=dt*8;
+      const i=Math.floor((vehicle.x+vehicle.size*.6-pile.surface.x)/CELL);
+      if(i<0||i>=pile.bins.length)continue;
+      const at=pile.surface.x+Math.min(pile.surface.width-.5,(i+.5)*CELL);
+      if(!this.isExposed(pile.surface,at))continue;
+      const available=pile.bins[i]*Math.min(1,dt*3.6);
+      if(available<=.002)continue;
+      let remainder=available;
+      for(const next of [i+3,i+4,i+5,i+6]){
+        if(next>=pile.bins.length)break;
+        const dest=pile.surface.x+Math.min(pile.surface.width-.5,(next+.5)*CELL);
+        if(!this.isExposed(pile.surface,dest))continue;
+        const transferred=Math.min(remainder,Math.max(0,this.settings.maxDepth-pile.bins[next]));
+        pile.bins[next]+=transferred;
+        pile.bins[i]-=transferred;
+        remainder-=transferred;
+        if(remainder<=.0001)break;
+      }
+    }
+    this.vehicles=this.vehicles.filter(v=>{
+      const p=this.piles.get(v.surfaceId);
+      return p&&v.x<=p.surface.x+p.surface.width+v.size;
+    });
+  }
   step(dtSeconds: number): void {
     if (!finite(dtSeconds) || dtSeconds <= 0) return;
     const dt = Math.min(1 / 30, dtSeconds);
@@ -438,12 +492,14 @@ export class SnowEngine {
     this.updateParticles(this.clumps, dt, true);
     this.applyContinuousMouse(dt);
     if(this.particleMode==='snow' && this.time>=this.frozenUntil)this.settle(dt);
+    this.advancePlows(dt);
   }
   snapshot(): { flakes: readonly Particle[]; clumps: readonly Particle[]; piles: Pile[];
     surfaces: readonly Surface[]; imprints: readonly SnowImprint[]; pulses: readonly SpellPulse[];
-    frozenUntil:number; time:number } {
+    frozenUntil:number; time:number; vehicles:readonly PlowVehicle[] } {
     return { flakes: this.flakes, clumps: this.clumps, surfaces: this.surfaces,
       imprints:this.imprints,pulses:this.pulses,frozenUntil:this.frozenUntil,time:this.time,
+      vehicles:this.vehicles,
       piles: Array.from(this.piles.values(), p => ({
         surface:p.surface,bins:Array.from(p.bins),
         exposed:Array.from(p.bins,(_,i)=>this.isExposed(p.surface,
@@ -640,6 +696,8 @@ export class SnowEngine {
     }
   }
   clear(): void {
+    this.vehicles=[];
+    this.lastPlowTime=this.time;
     this.imprints=[];
     this.pulses=[];
     this.frozenUntil=0;

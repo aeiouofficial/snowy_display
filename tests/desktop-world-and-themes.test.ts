@@ -45,7 +45,7 @@ test('maximized second-monitor window occludes others but never piles snow at mo
 });
 
 test('theme catalog has unique ids, all four advent editions, and nonsnow effects never accumulate', () => {
- assert.equal(THEMES.length,21,'the built-in pack catalog must remain complete');
+ assert.ok(THEMES.length>=38,'all seasons and supplemental weather/events must be present');
  assert.equal(new Set(THEMES.map(t=>t.id)).size,THEMES.length);
  for (const theme of THEMES) {
   assert.ok(theme.name && theme.description && theme.category);

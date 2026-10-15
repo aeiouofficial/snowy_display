@@ -15,13 +15,13 @@ Open-source snow accumulation on real desktop application windows. Snow builds u
 
 **CI: frontend and Windows/Linux/macOS native cargo checks pass (4/4).** Android APK builds run on feature-branch source changes or via manual workflow dispatch; still unverified until an artifact is produced.
 
-**Status: alpha.** The expanded frontend/physics suite passes 45/45 tests locally; Vite production and Windows native offline release checks pass. Multi-display and new seasonal content are implemented but still require physical runtime acceptance. Hardware window-occlusion acceptance remains outstanding. Live overlay behaviour (click-through, z-order, mixed DPI, fullscreen pause) has **not** yet been verified on real hardware for any OS. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only. Changes are tracked in `CHANGELOG.md`.
+**Status: alpha.** The expanded frontend/physics suite passes 69/69 tests locally; Vite production and Windows native offline release checks pass. Multi-display and new seasonal content are implemented but still require physical runtime acceptance. Hardware window-occlusion acceptance remains outstanding. Live overlay behaviour (click-through, z-order, mixed DPI, fullscreen pause) has **not** yet been verified on real hardware for any OS. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only. Changes are tracked in `CHANGELOG.md`.
 
 ## Shared displays and seasonal atmospheres
 
 Connected monitors form one virtual desktop in physical pixels: the first overlay coordinates the particles and snow heightfields while other overlays render the same scene at their own DPI scales. The monitor topology is refreshed automatically, including negative display origins and reconfiguration after hotplug. Repeated Snowy Display starts are blocked by an OS-level single-instance lock.
 
-Choose among **21 procedurally rendered themes** in Winter, Spring, Summer, Autumn, Events and Atmosphere. Themes include snow, rain, blossoms, leaves, fireflies, pollen, bats, sparks, stars and confetti. Events include Halloween, Advent weeks one through four, Christmas and New Year. Optional calendar automation selects themes locally without weather/location services. Snow effects accumulate on exposed windows; other effects do not leave snowdrifts. Three quality modes set conservative (Eco), balanced and high particle/FPS budgets. Theme configuration persists with other settings.
+Choose among **38 environments with animated procedural scenery** in Winter, Spring, Summer, Autumn, Weather, Events and Atmosphere. Themes include snow, rain, blossoms, leaves, fireflies, pollen, bats, sparks, stars and confetti. Events include Halloween, Advent weeks one through four, Christmas and New Year. Optional calendar automation selects themes locally without weather/location services. Snow effects accumulate on exposed windows; other effects do not leave snowdrifts. Three quality modes set conservative (Eco), balanced and high particle/FPS budgets. Theme configuration persists with other settings.
 
 See [`docs/CONTENT_PLATFORM.md`](docs/CONTENT_PLATFORM.md) for the architecture, measured vs. unverified claims and the roadmap for professional content packs, API integrations, diagnostics and installers.
 
@@ -30,6 +30,29 @@ See [`docs/CONTENT_PLATFORM.md`](docs/CONTENT_PLATFORM.md) for the architecture,
 The **Reactive snow & spells** panel provides seven selectable pointer modes: Observe, Footsteps, Snowplow, Wind spell, Vortex spell, Frost spell and Melt spell. Footsteps stamp temporary paired-looking depressions and displace snow toward adjacent exposed bins. Snowplow redistributes snow mass sideways without creating it; wind and vortex alter particle velocity. Frost temporarily suspends settling, while Melt intentionally removes snow mass without creating ghost flakes. Modes apply while moving the pointer across the preview or desktop snow. Desktop overlays remain click-through; no background mouse clicks are intercepted. A selected mode is saved with the current settings and may be returned to Observe to disable active interactions.
 
 Performance safeguards include 24/36/60 FPS tiers, bounded particles and spell visuals, a shared multi-monitor simulation and cached Z-order occlusion intervals. These are software limits, **not** independently measured GPU or battery benchmarks.
+
+## Scene Studio and autonomous snowplows
+
+The controls use four keyboard-accessible inline tabs: Scenes, Physics,
+Activity and System. Scenes includes a category-filtered and searchable
+library with live illustration previews. Animated spring butterflies, bees,
+birds, pine trees, auroras, rainbows, sunshine, autumn pumpkins, Halloween
+lanterns, candles for all four Advent editions, holiday lights, meteors and
+New Year fireworks are drawn as transparent procedural Canvas2D objects.
+Users can adjust scene object count, size, decorative animation, reduced
+motion, interaction modes and system performance.
+
+The Activity panel includes automatic snowplow maintenance vehicles in
+addition to pointer Snowplow, Footsteps and the wind/vortex/frost/melt
+spells. Vehicles **drive along snow-covered visible window/floor ledges**,
+physically transferring the existing snow mass into adjacent exposed bins
+rather than painting fake snow behind a decorative car. They are optional
+by default with a user-set interval. Closed, minimized and covered windows
+cannot leave phantom vehicles or accumulation. Rain and other non-snow
+themes cannot generate plows. The content and vehicle simulation run
+in the existing virtual desktop shared across connected monitors.
+
+Implementation and QA gates: docs/SCENE_STUDIO_2026-10-15.md.
 
 ## Develop
 
@@ -66,7 +89,10 @@ This is deliberately **a heightfield approximation**, not a validated continuum 
 ## Architecture
 
 ```
-src/physics.ts           shared deterministic simulation / collision / mass transfer
+src/physics.ts           shared deterministic simulation / collision / mass transfer / plow vehicles
+src/seasonal-content.ts  procedural motif placement and animation schedule
+src/seasonal-render.ts   transparent scene/object & vehicle Canvas2D drawing
+src/studio-ui.ts          category/search library, tab keyboard controls, settings bindings
 src/render.ts            transparent Canvas2D render pass (snow and clumps)
 src/app.ts               compact settings and draggable test scene
 src/overlay.ts           non-interactive desktop overlay driver

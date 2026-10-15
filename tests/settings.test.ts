@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fetchSettings, type AppSettings } from '../src/settings.ts';
+import { fetchSettings, DEFAULT_APP_SETTINGS, type AppSettings } from '../src/settings.ts';
 
 test('loading native settings returns them without writing browser storage prematurely', async () => {
   const local = '{"snowfall":0.12,"wind":0,"gravity":1,"cohesion":0.5,"maxDepth":20,"enabled":true}';
@@ -15,7 +15,7 @@ test('loading native settings returns them without writing browser storage prema
     },
   });
   try {
-    const native: AppSettings = { snowfall: 0.87, wind: -0.33, gravity: 1.4, cohesion: .6, maxDepth: 45, enabled: true,
+    const native: AppSettings = { ...DEFAULT_APP_SETTINGS, snowfall: 0.87, wind: -0.33, gravity: 1.4, cohesion: .6, maxDepth: 45, enabled: true,
       themeId: 'winter-snow', automaticTheme: false, performanceMode: 'balanced',
       interactionMode: 'none' };
     const loaded = await (fetchSettings as (read: () => Promise<AppSettings>) => Promise<AppSettings>)(async () => native);

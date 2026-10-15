@@ -2,16 +2,20 @@ import { DEFAULT_SETTINGS, type Settings } from './physics.ts';
 import { DEFAULT_THEME, resolveTheme, calendarTheme } from './themes.ts';
 import { resolvePerformance, type PerformanceMode } from './desktop-world.ts';
 import { normalizeTool, type InteractionTool } from './interactions.ts';
+import type { SceneVisualOptions } from './seasonal-render.ts';
 export const SETTINGS_KEY = 'snowy-display/settings-v1';
 export const SETTINGS_EVENT = 'snowy-display:settings';
 export const CLEAR_EVENT = 'snowy-display:clear-snow';
-export type AppSettings = Settings & { enabled: boolean; themeId: string; automaticTheme: boolean; performanceMode: PerformanceMode; interactionMode: InteractionTool };
+export type AppSettings = Settings & { enabled: boolean; themeId: string; automaticTheme: boolean; performanceMode: PerformanceMode; interactionMode: InteractionTool;
+  autoPlows:boolean; plowInterval:number; } & SceneVisualOptions;
 export function activeTheme(settings: Pick<AppSettings,'themeId'|'automaticTheme'>, now=new Date()) {
   return resolveTheme(settings.automaticTheme ? calendarTheme(now) : settings.themeId);
 }
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   ...DEFAULT_SETTINGS, enabled: true, themeId: DEFAULT_THEME,
   automaticTheme: false, performanceMode: 'balanced', interactionMode: 'none',
+  animationsEnabled:true,decorationDensity:.72,visualScale:1,reduceMotion:false,
+  showSceneObjects:true,autoPlows:false,plowInterval:20,
 };
 export function loadSettings(): AppSettings {
   try {
@@ -29,6 +33,16 @@ export function loadSettings(): AppSettings {
     if (typeof obj.automaticTheme === 'boolean') current.automaticTheme = obj.automaticTheme;
     current.performanceMode = resolvePerformance(obj.performanceMode);
     current.interactionMode = normalizeTool(obj.interactionMode);
+    current.animationsEnabled = obj.animationsEnabled !== false;
+    current.showSceneObjects = obj.showSceneObjects !== false;
+    current.autoPlows = obj.autoPlows === true;
+    current.reduceMotion = obj.reduceMotion === true;
+    if(typeof obj.decorationDensity==='number' && Number.isFinite(obj.decorationDensity))
+      current.decorationDensity=Math.max(0,Math.min(1,obj.decorationDensity));
+    if(typeof obj.visualScale==='number' && Number.isFinite(obj.visualScale))
+      current.visualScale=Math.max(.5,Math.min(2,obj.visualScale));
+    if(typeof obj.plowInterval==='number' && Number.isFinite(obj.plowInterval))
+      current.plowInterval=Math.max(7,Math.min(180,obj.plowInterval));
     return current;
   } catch { return { ...DEFAULT_APP_SETTINGS }; }
 }
@@ -52,6 +66,13 @@ export async function fetchSettings(
         themeId: resolveTheme(fromBackend.themeId).id,
         performanceMode: resolvePerformance(fromBackend.performanceMode),
         interactionMode: normalizeTool(fromBackend.interactionMode),
+        animationsEnabled:fromBackend.animationsEnabled !== false,
+        showSceneObjects:fromBackend.showSceneObjects !== false,
+        autoPlows:fromBackend.autoPlows === true,
+        reduceMotion:fromBackend.reduceMotion === true,
+        decorationDensity:typeof fromBackend.decorationDensity==='number'&&Number.isFinite(fromBackend.decorationDensity)?Math.max(0,Math.min(1,fromBackend.decorationDensity)):.72,
+        visualScale:typeof fromBackend.visualScale==='number'&&Number.isFinite(fromBackend.visualScale)?Math.max(.5,Math.min(2,fromBackend.visualScale)):1,
+        plowInterval:typeof fromBackend.plowInterval==='number'&&Number.isFinite(fromBackend.plowInterval)?Math.max(7,Math.min(180,fromBackend.plowInterval)):20,
         automaticTheme: fromBackend.automaticTheme === true,
       };
     }

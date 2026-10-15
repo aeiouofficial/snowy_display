@@ -1,6 +1,6 @@
 /** Extensible content catalog: seasonal ambience is separate from snow physics. */
 export type ParticleKind = 'snow' | 'rain' | 'petals' | 'leaves' | 'fireflies' | 'embers' | 'confetti' | 'stars' | 'bats';
-export type ThemeCategory = 'Winter' | 'Spring' | 'Summer' | 'Autumn' | 'Events' | 'Atmosphere';
+export type ThemeCategory = 'Winter' | 'Spring' | 'Summer' | 'Autumn' | 'Weather' | 'Events' | 'Atmosphere';
 export interface WeatherTheme {
   id: string;
   name: string;
@@ -35,6 +35,23 @@ export const THEMES: readonly WeatherTheme[] = [
   {id:'newyear-confetti',name:'New Year Celebration',category:'Events',description:'Colored festive confetti',particle:'confetti',color:'#ffce7c',secondary:'#8dcdfb',accumulating:false,accent:'#dec3f4',intensity:0.9},
   {id:'ambient-embers',name:'Campfire Sparks',category:'Atmosphere',description:'Soft upward floating embers',particle:'embers',color:'#ffcd80',secondary:'#ff804c',accumulating:false,accent:'#ff9b66',intensity:0.48},
   {id:'ambient-cosmos',name:'Cosmic Dust',category:'Atmosphere',description:'Quiet shimmering star particles',particle:'stars',color:'#cbc4ff',secondary:'#9fcaff',accumulating:false,accent:'#b8b0f1',intensity:0.36},
+  {id:'winter-northernlights',name:'Northern Lights',category:'Winter',description:'Snowfall and flowing boreal aurora',particle:'snow',color:'#d3f9ff',secondary:'#70e6ca',accumulating:true,accent:'#63dfcc',intensity:0.37},
+  {id:'winter-forest',name:'Snowbound Forest',category:'Winter',description:'Slow forest snow, distant birds and firs',particle:'snow',color:'#f5faff',secondary:'#b3dfea',accumulating:true,accent:'#91c4ca',intensity:0.45},
+  {id:'spring-butterflies',name:'Butterfly Garden',category:'Spring',description:'Animated wingbeats over spring blossoms',particle:'petals',color:'#ffe2f4',secondary:'#eeadd7',accumulating:false,accent:'#eba6cd',intensity:0.53},
+  {id:'spring-meadow',name:'Blooming Meadow',category:'Spring',description:'Wildflowers and roaming pollinators',particle:'petals',color:'#f8c2d6',secondary:'#dfad83',accumulating:false,accent:'#a8da8d',intensity:0.38},
+  {id:'spring-rainbow',name:'After the Rain',category:'Spring',description:'Rainbow arcs under soft passing clouds',particle:'rain',color:'#b9d5fc',secondary:'#e4edff',accumulating:false,accent:'#a6c0fa',intensity:0.28},
+  {id:'summer-bees',name:'Summer Apiary',category:'Summer',description:'Bees, blooms and golden midday light',particle:'fireflies',color:'#ffe194',secondary:'#ffbe55',accumulating:false,accent:'#f1cd68',intensity:0.31},
+  {id:'summer-kite',name:'Breezy Afternoon',category:'Summer',description:'A kite sailing between passing clouds',particle:'fireflies',color:'#ccf2ff',secondary:'#91dde8',accumulating:false,accent:'#95dada',intensity:0.19},
+  {id:'summer-goldenhour',name:'Golden Hour',category:'Summer',description:'Low sun and birds in amber light',particle:'stars',color:'#ffe5b8',secondary:'#ffc08c',accumulating:false,accent:'#e7b477',intensity:0.19},
+  {id:'autumn-harvest',name:'Harvest Lanterns',category:'Autumn',description:'Pumpkins, acorns and windblown leaves',particle:'leaves',color:'#e7ac5d',secondary:'#b66b36',accumulating:false,accent:'#d48b53',intensity:0.58},
+  {id:'autumn-migration',name:'Migration',category:'Autumn',description:'Migrating birds and a copper canopy',particle:'leaves',color:'#edbd83',secondary:'#d5805c',accumulating:false,accent:'#c99367',intensity:0.29},
+  {id:'weather-thunder',name:'Thunderstorm',category:'Weather',description:'Rain with restrained animated lightning',particle:'rain',color:'#b0c9f8',secondary:'#8f9fb9',accumulating:false,accent:'#91add4',intensity:0.94},
+  {id:'weather-fog',name:'Morning Fog',category:'Weather',description:'Transparent drifting mist banks',particle:'fireflies',color:'#d3e4e8',secondary:'#b3c4cb',accumulating:false,accent:'#b6d3d3',intensity:0.12},
+  {id:'weather-drizzle',name:'Light Drizzle',category:'Weather',description:'Fine rain and subtle cloudbanks',particle:'rain',color:'#c1dcf2',secondary:'#99bdd7',accumulating:false,accent:'#a5c4df',intensity:0.35},
+  {id:'weather-windy',name:'Windy Day',category:'Weather',description:'Rushing leaves and a windborne kite',particle:'leaves',color:'#e6c799',secondary:'#b7a56f',accumulating:false,accent:'#c8c1a2',intensity:0.62},
+  {id:'event-easter',name:'Spring Celebration',category:'Events',description:'Blooming flowers and playful butterflies',particle:'petals',color:'#ffe3f4',secondary:'#a4eec0',accumulating:false,accent:'#d5c7f1',intensity:0.54},
+  {id:'event-valentine',name:'Valentine Night',category:'Events',description:'Soft floating hearts and sparkling light',particle:'petals',color:'#ffd2e7',secondary:'#fa9db7',accumulating:false,accent:'#f3a6c4',intensity:0.34},
+  {id:'ambient-moonlight',name:'Silver Moonlight',category:'Atmosphere',description:'Crescent moon and moving silhouettes',particle:'stars',color:'#eff3ff',secondary:'#b9caff',accumulating:false,accent:'#b5c7ee',intensity:0.21},
 ] as const;
 export const DEFAULT_THEME = 'winter-snow';
 const THEMES_BY_ID = new Map(THEMES.map(t => [t.id, t]));

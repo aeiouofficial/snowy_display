@@ -28,7 +28,7 @@ seasonal artwork or unnecessary image downloads are bundled.
   Balanced (36 FPS, 650 particles, 220 ms polling), High (60 FPS, 1,150
   particles, 140 ms polling). Each is a user-selectable limit, not a claimed
   measured frame rate.
-- Twenty-one built-in effect themes in six collections: Winter, Spring, Summer,
+- Thirty-eight built-in effect themes in six collections: Winter, Spring, Summer,
   Autumn, Events, Atmosphere. Rain, pollen, petals, leaves, fireflies, sparks,
   stars, confetti and bats do **not** falsely accumulate as snow. Winter and
   Christmas snow can physically accumulate.
@@ -94,3 +94,11 @@ multi-monitor testing; fallback physics is fail-safe, not seamless synchronizati
 
 All target platforms require real-device acceptance before merging `main`,
 per project `AGENTS.md`.
+
+
+## Subsequent Scene Studio extension — October 2026
+
+38 procedurally illustrated and animated scenes, searchable inline
+control library and autonomous physics-based snowplow vehicles were added.
+See docs/SCENE_STUDIO_2026-10-15.md for exact content, controls, optional
+plow settings, privacy constraints and unverified hardware gates.
