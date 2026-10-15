@@ -1,0 +1,62 @@
+name: Android APK
+on:
+  push:
+    branches: ['feat/cross-platform-snow-physics-alpha']
+    paths:
+      - '.github/workflows/android-apk.yml'
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'index.html'
+      - 'overlay.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'vite.config.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: snowy-android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - name: Install Android SDK and NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:?GitHub runner Android SDK root is missing}"
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          if [[ -z "$SDKMANAGER" || ! -x "$SDKMANAGER" ]]; then
+            echo "::error::Android command-line tools not found in $ANDROID_HOME"
+            exit 1
+          fi
+          (yes | "$SDKMANAGER" --licenses >/dev/null) || true
+          "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.0.12077973'
+      - name: Expose NDK toolchain
+        run: echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: src-tauri }
+      - name: Install Linux native dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - name: Generate Android project noninteractively
+        run: npm run android:init -- --ci --skip-targets-install
+      - name: Build unsigned APK
+        run: npm run android:apk -- --ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: snowy-display-android-unsigned
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14

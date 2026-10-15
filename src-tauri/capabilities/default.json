@@ -1,0 +1,15 @@
+{
+  "identifier": "default",
+  "description": "Local-only controls and window geometry; no external network permissions",
+  "windows": ["main", "snow-overlay-*"],
+  "permissions": [
+    "core:default",
+    "core:event:allow-listen",
+    "core:event:allow-emit",
+    "core:window:allow-outer-position",
+    "core:window:allow-scale-factor",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus"
+  ]
+}
