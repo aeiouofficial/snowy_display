@@ -34,12 +34,26 @@ class SnowOverlayPlugin(private val host: Activity) : Plugin(host) {
  }
  @Command fun status(invoke: Invoke) = answer(invoke)
  @Command fun permission(invoke: Invoke) {
-  if (!granted()) {
-   val i=Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:" + host.packageName))
-   try { host.startActivity(i) }
-   catch (_:Exception) { host.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)) }
+  if (granted()) { answer(invoke); return }
+  // Android 11+ deliberately ignores a package: URI for overlay settings.
+  // Only OUR app needs one grant: this never requests approval for other apps.
+  val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+   Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+  } else {
+   Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:" + host.packageName))
+  }
+  try {
+   host.startActivity(intent)
    answer(invoke,true)
-  } else answer(invoke)
+  } catch (_:Exception) {
+   // OEMs may omit the standard page: fall back to OUR application details.
+   try {
+    host.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:" + host.packageName)))
+    answer(invoke,true)
+   } catch (error:Exception) {
+    invoke.reject("Cannot open Snowy Display permission settings: " + error.message)
+   }
+  }
  }
  private fun config(i:Intent,s:OverlaySettingsData?) {
   if(s==null)return

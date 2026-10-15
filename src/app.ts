@@ -85,14 +85,14 @@ target.innerHTML = `<main class="app-shell">
 </section>
 <section id="panel-system" class="studio-panel" role="tabpanel" aria-labelledby="tab-system" hidden>
  <div id="android-overlay-controls" class="settings-block android-overlay-controls" hidden>
-  <h3>Weather over other apps</h3>
-  <p class="block-note">Real click-through Android weather overlay. Requires Android's “Display over other apps” permission.</p>
+  <h3>Weather across apps</h3>
+  <p class="block-note">One approval for <strong>Snowy Display</strong> is enough. Weather then appears over other compatible apps automatically — do not approve the other apps in Android's list.</p>
   <div id="android-overlay-status" role="status" aria-live="polite">Checking overlay status…</div>
   <div class="actions">
-    <button id="android-overlay-start" type="button" class="secondary">Enable overlay</button>
+    <button id="android-overlay-start" type="button" class="secondary">Allow Snowy Display once</button>
     <button id="android-overlay-stop" type="button" class="secondary danger">Stop overlay</button>
   </div>
-  <p class="block-note">Android restricts reading other apps' windows. Accumulation is on the screen bottom, not external app windows.</p>
+  <p class="block-note">Android 11+ shows an application list when granting permission. Select only <strong>Snowy Display</strong>, switch it on and return here; the weather starts automatically. Android restricts reading other apps' windows, so mobile accumulation stays at the bottom of the display.</p>
  </div>
  <div class="panel-heading"><span class="eyebrow">DISPLAY & PERFORMANCE</span>
   <div class="heading-row"><h2>System settings</h2><span class="content-count">ALL MONITORS</span></div>
@@ -152,8 +152,21 @@ const isAndroid = document.documentElement.classList.contains('android-ui');
 const androidControls = document.querySelector<HTMLElement>('#android-overlay-controls')!;
 const overlayQuick = document.querySelector<HTMLButtonElement>('#android-overlay-quick')!;
 const overlayStatus = document.querySelector<HTMLElement>('#android-overlay-status')!;
+const overlayStartButton = document.querySelector<HTMLButtonElement>('#android-overlay-start')!;
+const overlayStopButton = document.querySelector<HTMLButtonElement>('#android-overlay-stop')!;
+const OVERLAY_PENDING_KEY = 'snowy-display:pending-overlay-start';
 let overlayRunning = false;
+let overlayActionBusy = false;
+let pendingOverlayStart = false;
+try { pendingOverlayStart = sessionStorage.getItem(OVERLAY_PENDING_KEY) === '1'; } catch { /* Private browser settings */ }
 type OverlayStatus = { granted:boolean; running:boolean; permissionRequested?:boolean };
+function markPendingOverlayStart(pending:boolean):void {
+ pendingOverlayStart = pending;
+ try {
+  if(pending) sessionStorage.setItem(OVERLAY_PENDING_KEY,'1');
+  else sessionStorage.removeItem(OVERLAY_PENDING_KEY);
+ } catch { /* Session storage can be disabled; in-memory state still works. */ }
+}
 async function androidOverlayAction(action:'status'|'permission'|'start'|'stop'|'update'):Promise<OverlayStatus> {
  const {invoke}=await import('@tauri-apps/api/core');
  return invoke<OverlayStatus>('control',{
@@ -163,39 +176,76 @@ async function androidOverlayAction(action:'status'|'permission'|'start'|'stop'|
 function displayOverlayStatus(value:OverlayStatus):void {
  overlayRunning=value.running;
  overlayStatus.textContent=!value.granted
-  ? 'Android permission required: Display over other apps'
-  : value.running?'Overlay active over other apps':'Permission granted · overlay stopped';
- overlayQuick.textContent=value.running?'Stop overlay':'Start overlay';
+  ? 'One approval for Snowy Display. Android may show a list: select only Snowy Display, allow it, then return. Weather will appear over other apps automatically.'
+  : value.running
+   ? 'Weather is running across compatible apps. No per-app approvals are required.'
+   : 'Snowy Display is approved for other apps. Start the weather whenever you want.';
+ overlayQuick.textContent=value.running?'Stop weather':value.granted?'Start weather':'Allow once';
  overlayQuick.setAttribute('aria-pressed',String(value.running));
- document.querySelector<HTMLButtonElement>('#android-overlay-start')!.disabled=value.running;
- document.querySelector<HTMLButtonElement>('#android-overlay-stop')!.disabled=!value.running;
+ overlayStartButton.textContent=value.granted?'Start weather':'Allow Snowy Display once';
+ overlayStartButton.disabled=value.running;
+ overlayStopButton.disabled=!value.running && !pendingOverlayStart;
 }
 async function refreshOverlayStatus():Promise<void>{
- if(!isAndroid)return;
- try {displayOverlayStatus(await androidOverlayAction('status'));}
- catch(err){overlayStatus.textContent='Overlay unavailable: '+String(err);}
+ if(!isAndroid || overlayActionBusy)return;
+ try {
+  const state=await androidOverlayAction('status');
+  displayOverlayStatus(state);
+  if(state.granted && pendingOverlayStart && !state.running) {
+   await startAndroidOverlay();
+  } else if(state.granted && pendingOverlayStart && state.running) {
+   markPendingOverlayStart(false);
+  }
+ }catch(err){overlayStatus.textContent='Overlay status unavailable: '+String(err);}
 }
 async function startAndroidOverlay():Promise<void>{
+ if(overlayActionBusy)return;
+ overlayActionBusy=true;
+ overlayStartButton.disabled=true;
  try {
   const state=await androidOverlayAction('status');
   if(!state.granted){
+   markPendingOverlayStart(true);
+   overlayStatus.textContent='Grant Snowy Display only (one approval), then return here. The overlay will start automatically.';
    const result=await androidOverlayAction('permission');
    displayOverlayStatus(result);
    return;
   }
-  await androidOverlayAction('start');
-  window.setTimeout(()=>{void refreshOverlayStatus()},600);
- }catch(err){overlayStatus.textContent='Overlay start failed: '+String(err);}
+  markPendingOverlayStart(false);
+  if(!state.running) {
+   const started=await androidOverlayAction('start');
+   if(started.running) displayOverlayStatus(started);
+   else {
+    overlayStatus.textContent='Permission approved. Starting weather across other apps…';
+    overlayQuick.textContent='Starting…';
+   }
+  } else displayOverlayStatus(state);
+  window.setTimeout(()=>{void refreshOverlayStatus()},350);
+ }catch(err){overlayStatus.textContent='Could not start weather: '+String(err);}
+ finally {
+  overlayActionBusy=false;
+  overlayStartButton.disabled=overlayRunning;
+ }
 }
 async function stopAndroidOverlay():Promise<void>{
- try{await androidOverlayAction('stop');}
+ if(overlayActionBusy)return;
+ overlayActionBusy=true;
+ markPendingOverlayStart(false);
+ try{displayOverlayStatus(await androidOverlayAction('stop'));}
  catch(err){overlayStatus.textContent='Overlay stop failed: '+String(err);}
+ finally{overlayActionBusy=false;}
  window.setTimeout(()=>{void refreshOverlayStatus()},250);
 }
 if(isAndroid){
+ // The controls should stay pinned; only the active tab's contents scroll.
+ const tabs = document.querySelector<HTMLElement>('#studio-tabs')!;
+ const scenesPanel = document.querySelector<HTMLElement>('#panel-scenes')!;
+ const shell = document.querySelector<HTMLElement>('.app-shell')!;
+ shell.insertBefore(tabs,scenesPanel);
+ scenesPanel.prepend(document.querySelector<HTMLElement>('.visual')!);
  androidControls.hidden=false;overlayQuick.hidden=false;
- document.querySelector('#android-overlay-start')!.addEventListener('click',()=>{void startAndroidOverlay()});
- document.querySelector('#android-overlay-stop')!.addEventListener('click',()=>{void stopAndroidOverlay()});
+ overlayStartButton.addEventListener('click',()=>{void startAndroidOverlay()});
+ overlayStopButton.addEventListener('click',()=>{void stopAndroidOverlay()});
  overlayQuick.addEventListener('click',()=>{void (overlayRunning?stopAndroidOverlay():startAndroidOverlay())});
  window.addEventListener('focus',()=>{void refreshOverlayStatus()});
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshOverlayStatus()});
