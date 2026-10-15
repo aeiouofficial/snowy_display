@@ -103,7 +103,7 @@ fn setup_tray_and_window(app: &mut tauri::App) -> tauri::Result<()> {
     use tauri::Manager;
     if let Some(main) = app.get_webview_window("main") {
         let _ = main.show();
-        let _ = main.set_focus();
+        // Initial launch should not steal focus from the user's active task.
         let main_clone = main.clone();
         main.on_window_event(move |event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

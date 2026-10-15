@@ -2,6 +2,19 @@
 
 ## New verified checks (2026-10-15)
 
+### Occlusion and duplicate-instance corrections
+
+- **Confirmed reason previous bleed fixes were insufficient:** native top-edge coordinates `y <= 6` were filtered from the entire overlay surface list. Maximized/fullscreen windows therefore were not occluders and snow from windows behind them could be drawn on top. They now remain in the z-order surface list while receiving no new snow at the monitor bezel.
+- **Confirmed ghost-snow source:** on an absent window the engine previously called `shed(pile, 1)`, spawning new clumps that could settle on other apps. Closing, minimizing, or temporarily losing window metadata now discards the departed pile without spawning additional falling snow. Window movement still induces shear and clump release.
+- Native process-wide singleton guard runs before `snowy_display_lib::run()`: Win32 named kernel mutex; Unix/macOS kernel advisory `flock`; duplicate launches return without creating GUI or overlays. Initial program launch no longer calls `set_focus`.
+- Added deterministic tests `tests/fullscreen-occlusion.test.ts` and `tests/single-instance.test.ts`; both previously missing behaviors demonstrated RED before fix. Full Node/TypeScript test suite: **35/35 PASS** at latest local check. `cargo check --release --offline --locked` PASS with new Rust guard.
+- **Pending**: rebuild the Windows production EXE with Tauri CLI, execute the three-start single-instance smoke test, and visually inspect real overlapping windows. Do not infer live hardware success from tests alone.
+
+
+### Critical build-mode correction
+
+The manually launched `cargo build --release` binary was **not production-correct**: Tauri did not enable `tauri/custom-protocol`, and the controls attempted to load `http://localhost:1420`, causing `ERR_CONNECTION_REFUSED` on desktop. Rust compile success and a live process are insufficient UI verification. The corrected Windows build entrypoint is `pythonw.exe scripts/build-release.py`, which invokes the Tauri CLI `npm run build -- --no-bundle -- --offline`, regenerates `dist`, and forces the native production protocol. The Windows CI matrix now additionally exercises `npm run build -- --no-bundle`. Release smoke must prove the controls render **with no Vite server running** before calling the native build functional.
+
 - Reconnected RDC, resumed work exclusively in `S:\\snowy_display` with workspace-local scratch and hidden subprocesses.
 - Full test suite: `npm run check` **28/28 PASS**, frontend `npm run build:web` **PASS**.
 - Native `cargo check --release --offline --locked --manifest-path src-tauri/Cargo.toml` **PASS** using the directly installed Rust toolchain, offline Cargo cache and S: target.

@@ -32,3 +32,6 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run build:web
       - run: cargo check --manifest-path src-tauri/Cargo.toml
+      - name: Build bundled Windows release (no localhost dev server)
+        if: runner.os == 'Windows'
+        run: npm run build -- --no-bundle

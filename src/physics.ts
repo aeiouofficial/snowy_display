@@ -77,11 +77,13 @@ export class SnowEngine {
   }
   /** Supply ALL visible windows, front-to-back or in any order, with stable IDs. */
   setSurfaces(surfaces: Surface[], atSeconds = this.time): void {
-    const hiddenIds = new Set(surfaces.filter(s => s.hidden && s.id).map(s => s.id));
-    const clean = surfaces.filter(s => !s.hidden && s.id && [s.x, s.y, s.width, s.height, s.z].every(finite) && s.width > 1 && s.height > 0 && s.y > 6);
+    const clean = surfaces.filter(s => !s.hidden && s.id && [s.x, s.y, s.width, s.height, s.z].every(finite) && s.width > 1 && s.height > 0);
     const ordered = [...clean].sort((a, b) => b.z - a.z);
+    // Maximized windows with top y <= 6 still OCCLUDE every window behind
+    // them; only their own top bezel is ineligible for snow deposits.
+    const eligible = ordered.filter(s => s.y > 6);
     const stepSeconds = Math.max(0.05, Math.min(2, atSeconds - this.previousSurfaceUpdate));
-    for (const s of ordered) {
+    for (const s of eligible) {
       const old = this.piles.get(s.id);
       const targetCount = Math.max(1, Math.ceil(s.width / CELL));
       if (!old) {
@@ -104,12 +106,12 @@ export class SnowEngine {
       old.surface = s;
       old.lastSeen = atSeconds;
     }
-    const ids = new Set(ordered.map(s => s.id));
+    const ids = new Set(eligible.map(s => s.id));
     for (const [id, pile] of this.piles) {
       if (!ids.has(id)) {
-        // Minimized/cloaked windows no longer occupy the desktop; do not dump
-        // their snow onto an unrelated window beneath them.
-        if (!hiddenIds.has(id)) this.shed(pile, 1, 0);
+        // A window can disappear because it closed, minimized, became
+        // temporarily unobservable or maximized to the bezel. None of these
+        // transitions creates physical falling snow on other applications.
         this.piles.delete(id);
       }
     }

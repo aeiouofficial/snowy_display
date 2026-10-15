@@ -1,6 +1,6 @@
 # Snowy Display
 
-Open-source snow accumulation on real desktop application windows. Snow builds up unevenly on exposed title bars, slumps under gravity, sheds clumps when windows move, and drops when windows close. **No snowmen, Santa, or decorative characters.**
+Open-source snow accumulation on real desktop application windows. Snow builds up unevenly on exposed title bars, slumps under gravity, sheds clumps when windows move, and discards closed or minimized window piles without depositing ghost snow onto other applications. **No snowmen, Santa, or decorative characters.**
 
 ## Platforms and current scope
 
@@ -15,7 +15,7 @@ Open-source snow accumulation on real desktop application windows. Snow builds u
 
 **CI: frontend and Windows/Linux/macOS native cargo checks pass (4/4).** Android APK builds run on feature-branch source changes or via manual workflow dispatch; still unverified until an artifact is produced.
 
-**Status: alpha.** TypeScript checks, 14/14 deterministic physics tests, the Vite production build, and native Windows `cargo check --offline` pass; a Windows debug executable has been built. Live overlay behaviour (click-through, z-order, mixed DPI, fullscreen pause) has **not** yet been verified on real hardware for any OS. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only. Changes are tracked in `CHANGELOG.md`.
+**Status: alpha.** TypeScript and physics tests (35/35 at the latest local pass), Vite production build, and native offline Windows release-check pass. Hardware window-occlusion acceptance remains outstanding. Live overlay behaviour (click-through, z-order, mixed DPI, fullscreen pause) has **not** yet been verified on real hardware for any OS. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only. Changes are tracked in `CHANGELOG.md`.
 
 ## Develop
 
@@ -27,11 +27,11 @@ Prerequisites: Node.js >=22, Rust stable, Tauri 2 platform prerequisites ([offic
 npm install
 npm run check
 npm run dev        # Tauri desktop: snow overlay(s), tray -> Show controls
-npm run build      # Native desktop bundle
+npm run build      # Native desktop bundle (Tauri CLI; embeds frontend assets)
 npm run dev:web    # Browser-only settings and draggable physics preview
 ```
 
-When the desktop app starts it places transparent, non-focusable, click-through overlays over detected monitors. It keeps its settings window hidden and exposes it through **system tray > Show controls** to avoid interrupting active work. Overlay shutdown is through **system tray > Quit**. No new PowerShell/CMD windows are launched by the application.
+The app acquires a system-level single-instance lock before creating any windows; a second launch exits without opening duplicate controls or overlays. When started it places transparent, non-focusable, click-through overlays over detected monitors. The controls open with the first instance; closing them hides them to the tray. **System tray > Show controls** reopens them. A second app launch is blocked before Tauri creates any additional windows. Overlay shutdown is through **system tray > Quit**. No new PowerShell/CMD windows are launched by the application.
 
 ### Android / iOS future path
 

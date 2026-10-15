@@ -8,10 +8,12 @@ No version has been tagged yet; everything below is unreleased alpha work on
 ## [Unreleased]
 
 ### Fixed (2026-10-15)
-- **Occluded/minimized-window bleed**: deposits cannot spill into covered neighboring bins; new overlaps preserve hidden piles without creating ghost clumps; Win32 minimized windows are explicitly marked hidden and their snow is discarded without raining onto underlying windows. Rendering clips snow crests against foreground window rectangles.
+- **Production launch / ERR_CONNECTION_REFUSED**: a bare `cargo build --release` does not enable the Tauri production `custom-protocol` feature and therefore mistakenly opens `localhost:1420` in the release EXE. Windows releases must use `pythonw.exe scripts/build-release.py` (which runs `npm run build -- --no-bundle -- --offline`). The Windows GitHub Check job now verifies a bundled production-mode Tauri build.
+- **Occluded/minimized-window bleed**: maximized/fullscreen windows (top edge at or above y=6) are retained as occluders but never used for snow accumulation at the screen bezel. Closed, minimized and temporarily missing windows quietly discard snow instead of raining ghost clumps on underlying applications; physically moving windows can still shed. Covered bins cannot receive neighbor deposits; snow crests are clipped behind foreground windows.
 - **Settings startup race**: initial settings presentation no longer persists stale defaults to native storage or overwrites edits made before native settings finish loading.
 - **Overlay first-frame contract**: window is shown only after canvas drawing; explicit Tauri show permission retained.
-- Regression suite expanded to 28 tests (5 occlusion tests; 2 overlay contract tests; 2 settings tests), all passing locally, with offline release-profile Cargo check passing. Real hardware QA remains a release blocker.
+- **Duplicate Snowy Display windows**: Windows now acquires a named kernel mutex before Tauri setup. Linux/macOS use a process-lifetime advisory flock. Repeated launch exits early without spawning duplicate overlays or stealing focus. Explicit tray Show controls remains available.
+- Regression suite expanded to 35 tests including fullscreen occlusion and native singleton guard assertions, all passing locally. Real hardware QA remains a release blocker.
 
 ### Fixed
 - **Desktop shell windows treated as surfaces** (Windows `Progman`/`WorkerW`, X11 `_NET_WM_WINDOW_TYPE_DESKTOP`).

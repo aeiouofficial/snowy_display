@@ -1,5 +1,16 @@
 # Occlusion regression and reconciliation — 2026-10-15
 
+## Follow-up: fullscreen bleed and duplicate processes
+
+The initial clipping fix did **not** solve fullscreen/maximized occlusion. `src/overlay.ts` filtered native windows using `s.y > 6`; `src/physics.ts` likewise omitted the same windows from the *entire* surface list, including z-order occlusion. They were invisible to `isExposed`, allowing piles on background windows to render over the maximized foreground. The new rule retains all visible native rectangles for z-order/clipping but creates snow-bearing heightfields only for windows whose top is below the display bezel. Regression: `tests/fullscreen-occlusion.test.ts`.
+
+Furthermore, on any untracked/disappearing window `setSurfaces` called `shed(pile, 1)`; the resulting clumps could land on unrelated windows beneath closed applications or transiently lost geometry. Disappearance now drops its pile silently; explicit physical window movement remains the mechanism for shedding mass.
+
+Duplicate launches were an independent amplifier of the bleeding effect: several always-on-top overlays could run simultaneously. New `src-tauri/src/single_instance.rs` obtains a kernel-named mutex on Windows and advisory file lock on Unix desktops **before** `snowy_display_lib::run()`. Subsequent launches exit without creating a Tauri window; the guard survives for the lifetime of the owning process. The automatic initial controls-window focus call was also removed.
+
+Red-to-green tests: three deterministic fullscreen/closure/overlay-filter failures plus missing native single-instance file; then **35/35** tests green and native offline release `cargo check` passed. Native GUI double-launch smoke and physical visual acceptance must still be observed after the new Tauri production build.
+
+
 ## Confirmed failure
 - At the boundary of an exposed rear window edge, `SnowEngine.deposit` populated neighboring bins even when the neighbor's center was covered by a higher-z window. This produced apparently misplaced snow.
 - Occluding an existing pile called `releaseBin` for its hidden bins and generated falling clumps, which could settle on unrelated foreground or lower windows.
