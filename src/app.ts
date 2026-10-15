@@ -7,6 +7,7 @@ import { activeTheme, DEFAULT_APP_SETTINGS } from './settings.ts';
 import { INTERACTION_TOOLS, normalizeTool } from './interactions.ts';
 import { installStudioUI } from './studio-ui.ts';
 import './style.css';
+if (/Android/i.test(navigator.userAgent)) document.documentElement.classList.add('android-ui');
 
 const target = document.querySelector<HTMLDivElement>('#app');
 if (!target) throw new Error('App root missing');
@@ -14,6 +15,7 @@ target.innerHTML = `<main class="app-shell">
 <header class="header">
  <div class="brandmark" aria-hidden="true">✳</div>
  <div class="brandcopy"><h1>Snowy Display</h1><p>ATMOSPHERE STUDIO</p></div>
+ <button type="button" id="android-overlay-quick" class="android-overlay-quick" hidden>Start overlay</button>
  <div class="live-status"><span class="live-dot"></span><span id="runtime-status">LIVE</span></div>
 </header>
 <section class="visual" aria-label="Animated weather preview">
@@ -82,6 +84,16 @@ target.innerHTML = `<main class="app-shell">
  </div>
 </section>
 <section id="panel-system" class="studio-panel" role="tabpanel" aria-labelledby="tab-system" hidden>
+ <div id="android-overlay-controls" class="settings-block android-overlay-controls" hidden>
+  <h3>Weather over other apps</h3>
+  <p class="block-note">Real click-through Android weather overlay. Requires Android's “Display over other apps” permission.</p>
+  <div id="android-overlay-status" role="status" aria-live="polite">Checking overlay status…</div>
+  <div class="actions">
+    <button id="android-overlay-start" type="button" class="secondary">Enable overlay</button>
+    <button id="android-overlay-stop" type="button" class="secondary danger">Stop overlay</button>
+  </div>
+  <p class="block-note">Android restricts reading other apps' windows. Accumulation is on the screen bottom, not external app windows.</p>
+ </div>
  <div class="panel-heading"><span class="eyebrow">DISPLAY & PERFORMANCE</span>
   <div class="heading-row"><h2>System settings</h2><span class="content-count">ALL MONITORS</span></div>
   <p>One shared desktop simulation, performance controls and accessible motion options.</p></div>
@@ -135,6 +147,59 @@ for (const tool of INTERACTION_TOOLS) {
     config={...config,interactionMode:tool.id};update();
   });
   interactionButtons.appendChild(button);
+}
+const isAndroid = document.documentElement.classList.contains('android-ui');
+const androidControls = document.querySelector<HTMLElement>('#android-overlay-controls')!;
+const overlayQuick = document.querySelector<HTMLButtonElement>('#android-overlay-quick')!;
+const overlayStatus = document.querySelector<HTMLElement>('#android-overlay-status')!;
+let overlayRunning = false;
+type OverlayStatus = { granted:boolean; running:boolean; permissionRequested?:boolean };
+async function androidOverlayAction(action:'status'|'permission'|'start'|'stop'|'update'):Promise<OverlayStatus> {
+ const {invoke}=await import('@tauri-apps/api/core');
+ return invoke<OverlayStatus>('control',{
+  action,settings:{...config,themeId:activeTheme(config).id}
+ });
+}
+function displayOverlayStatus(value:OverlayStatus):void {
+ overlayRunning=value.running;
+ overlayStatus.textContent=!value.granted
+  ? 'Android permission required: Display over other apps'
+  : value.running?'Overlay active over other apps':'Permission granted · overlay stopped';
+ overlayQuick.textContent=value.running?'Stop overlay':'Start overlay';
+ overlayQuick.setAttribute('aria-pressed',String(value.running));
+ document.querySelector<HTMLButtonElement>('#android-overlay-start')!.disabled=value.running;
+ document.querySelector<HTMLButtonElement>('#android-overlay-stop')!.disabled=!value.running;
+}
+async function refreshOverlayStatus():Promise<void>{
+ if(!isAndroid)return;
+ try {displayOverlayStatus(await androidOverlayAction('status'));}
+ catch(err){overlayStatus.textContent='Overlay unavailable: '+String(err);}
+}
+async function startAndroidOverlay():Promise<void>{
+ try {
+  const state=await androidOverlayAction('status');
+  if(!state.granted){
+   const result=await androidOverlayAction('permission');
+   displayOverlayStatus(result);
+   return;
+  }
+  await androidOverlayAction('start');
+  window.setTimeout(()=>{void refreshOverlayStatus()},600);
+ }catch(err){overlayStatus.textContent='Overlay start failed: '+String(err);}
+}
+async function stopAndroidOverlay():Promise<void>{
+ try{await androidOverlayAction('stop');}
+ catch(err){overlayStatus.textContent='Overlay stop failed: '+String(err);}
+ window.setTimeout(()=>{void refreshOverlayStatus()},250);
+}
+if(isAndroid){
+ androidControls.hidden=false;overlayQuick.hidden=false;
+ document.querySelector('#android-overlay-start')!.addEventListener('click',()=>{void startAndroidOverlay()});
+ document.querySelector('#android-overlay-stop')!.addEventListener('click',()=>{void stopAndroidOverlay()});
+ overlayQuick.addEventListener('click',()=>{void (overlayRunning?stopAndroidOverlay():startAndroidOverlay())});
+ window.addEventListener('focus',()=>{void refreshOverlayStatus()});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshOverlayStatus()});
+ void refreshOverlayStatus();
 }
 const scene = document.querySelector<HTMLElement>('#scene')!;
 const canvas = document.querySelector<HTMLCanvasElement>('#preview')!;
@@ -215,6 +280,9 @@ function update(persist = true): void {
     const p = PRESETS[chip.textContent || ''];
     const active = p && Object.entries(p).every(([k, v]) => Math.abs((config as any)[k] - (v as number)) < 0.02);
     chip.classList.toggle('active', !!active);
+  }
+  if (isAndroid && overlayRunning) {
+    void androidOverlayAction('update').catch(err=>console.warn('[snowy] Android overlay update failed',err));
   }
   if (persist) {
     editRevision += 1;

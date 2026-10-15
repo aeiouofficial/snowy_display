@@ -307,22 +307,65 @@ fn spawn_cursor_tracker(app: tauri::AppHandle) {
     }
 }
 
+
+#[cfg(target_os = "android")]
+mod android_weather {
+    use super::AppSettings;
+    use tauri::{plugin::{Builder, PluginHandle, TauriPlugin}, Manager, Wry};
+
+    pub struct Overlay(pub PluginHandle<Wry>);
+
+    pub fn init() -> TauriPlugin<Wry> {
+        Builder::new("android-overlay")
+            .setup(|app, api| {
+                let handle = api.register_android_plugin(
+                    "io.aeiouofficial.snowydisplay", "SnowOverlayPlugin"
+                )?;
+                app.manage(Overlay(handle));
+                Ok(())
+            })
+            .build()
+    }
+
+    #[tauri::command]
+    pub fn control(
+        state: tauri::State<'_, Overlay>,
+        action: String,
+        settings: Option<AppSettings>,
+    ) -> Result<serde_json::Value, String> {
+        if !matches!(action.as_str(), "status" | "permission" | "start" | "stop" | "update") {
+            return Err("Unsupported overlay action".into());
+        }
+        state.0.run_mobile_plugin(action.as_str(), serde_json::json!({ "settings": settings }))
+            .map_err(|error| format!("Android overlay command failed: {error}"))
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![
-            window_geometry::desktop_snapshot,
-            desktop_monitors,
-            get_desktop_settings,
-            save_desktop_settings,
-            clear_desktop_snow,
-            get_cursor_position
-        ])
         .setup(|app| {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             setup_tray_and_window(app)?;
             Ok(())
         });
+
+    #[cfg(target_os = "android")]
+    let builder = builder
+        .plugin(android_weather::init())
+        .invoke_handler(tauri::generate_handler![
+            window_geometry::desktop_snapshot, desktop_monitors,
+            get_desktop_settings, save_desktop_settings,
+            clear_desktop_snow, get_cursor_position,
+            android_weather::control
+        ]);
+
+    #[cfg(not(target_os = "android"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        window_geometry::desktop_snapshot, desktop_monitors,
+        get_desktop_settings, save_desktop_settings,
+        clear_desktop_snow, get_cursor_position
+    ]);
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {

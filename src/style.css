@@ -212,3 +212,62 @@ footer{font-size:10px;display:flex;justify-content:space-between;gap:12px;
 @media(prefers-reduced-motion:reduce){
  *,*:before,*:after{transition:none!important;animation:none!important;scroll-behavior:auto!important}
 }
+
+/* The control viewport is a fixed shell; ONLY the active tab panel scrolls.
+   This prevents the header, preview and bottom navigation moving under
+   Android system UI during swipe navigation. */
+html,body,#app {width:100%;height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none}
+body {overscroll-behavior:none}
+.app-shell {
+ height:100%;height:100dvh;min-height:0;overflow:hidden;
+ display:flex;flex-direction:column;
+ padding:12px 18px 0;
+}
+.header {flex:0 0 auto;margin-bottom:9px;padding:3px 0;min-height:49px;z-index:8}
+.visual {flex:0 0 auto;margin:0 0 10px}
+.scene {height:clamp(115px,23dvh,210px)}
+.scene-caption {padding:10px 13px}
+.preview-head {height:28px}
+.studio-tabs {position:relative;top:auto;flex:0 0 auto;margin:0 0 8px;box-shadow:none}
+.studio-panel {
+ flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;
+ overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;
+ padding:6px 3px max(18px,env(safe-area-inset-bottom));
+ touch-action:pan-y;
+ scrollbar-width:thin;
+}
+.theme-gallery{max-height:none;overflow:visible}
+footer {display:none}
+.environment-field {display:none} /* inline quality cards; no OS modal select */
+@media (max-width:540px) {
+ .app-shell {padding:9px 11px 0}
+ .header {margin-bottom:8px}
+ .brandmark {height:35px;width:35px;font-size:21px}
+ .brandcopy h1 {font-size:17px}
+ .brandcopy p {font-size:9px}
+ .scene {height:clamp(106px,19dvh,157px)}
+ .scene-caption {padding:8px 11px}
+ .scene-caption h2 {font-size:13px}
+ .scene-caption p {font-size:10px}
+ .visual {margin-bottom:9px}
+ .studio-tabs {margin-bottom:6px}
+ .studio-tabs button {min-height:38px;padding:7px 3px}
+ .studio-panel {padding:5px 1px max(20px,env(safe-area-inset-bottom))}
+ .category-filters {flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
+ .category-filters::-webkit-scrollbar{display:none}
+ .settings-block {padding:12px}
+}
+@supports (padding: env(safe-area-inset-top)) {
+ .app-shell {
+   padding-top:max(9px,env(safe-area-inset-top));
+ }
+}
+
+.android-overlay-controls #android-overlay-status {margin:10px 0;color:#a4dfca;font-size:12px}
+.android-overlay-quick {display:none;border:1px solid #4e9c96;border-radius:9px;background:#244841;color:#dcf9e8;
+ font-size:11px;font-weight:700;padding:10px;min-width:105px}
+.android-overlay-quick[aria-pressed="true"]{background:#613b3e;border-color:#9d6368}
+.android-ui .android-overlay-quick:not([hidden]){display:block}
+.android-ui .live-status{display:none}
+.android-ui .app-shell{padding-top:max(24px,env(safe-area-inset-top))}
+.android-ui .header{flex-shrink:0}
