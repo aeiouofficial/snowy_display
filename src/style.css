@@ -344,3 +344,59 @@ footer {display:none}
  .android-ui .studio-panel{padding:10px 11px 22px}
  .android-ui .studio-tabs button{font-size:9.5px}
 }
+
+/* Android live preview: fixed beneath the header, visible while editing any
+   section, collapsible in-place without modal layers. */
+.android-ui .visual{
+ order:1;flex:0 0 auto;width:100%;max-width:none;margin:0 0 4px;
+ border-radius:0;border-inline:0;box-shadow:none;
+}
+.android-ui .visual .preview-head{
+ min-height:29px;padding:0 13px;height:30px;
+}
+.android-ui .visual .preview-head .preview-hint{display:none}
+.android-ui .visual .scene{height:clamp(92px,15dvh,136px)}
+.android-ui .visual .scene-caption{padding:6px 12px}
+.android-ui .visual .scene-caption h2{font-size:12px;margin:2px 0}
+.android-ui .visual .scene-caption p{font-size:9px;max-width:260px}
+.android-ui .visual #mobile-preview-toggle{
+ border:1px solid #395b75;border-radius:7px;padding:4px 9px;
+ background:#1e3449;color:#c2e6fa;font-size:10px;font-weight:650;
+}
+.android-ui .visual.preview-collapsed .scene,
+.android-ui .visual.preview-collapsed .scene-caption{display:none!important}
+.android-ui .visual.preview-collapsed{margin-bottom:0}
+.android-ui .studio-panel{order:2}
+.android-ui .studio-tabs{order:3}
+/* Final Android layout contract: the app shell does not participate in page
+   scrolling; only the visible settings panel scrolls between fixed chrome. */
+html.android-ui,html.android-ui body,html.android-ui #app{
+ width:100%;height:100%;height:100dvh;overflow:hidden!important;
+ overscroll-behavior:none;
+}
+html.android-ui .app-shell{
+ position:fixed;top:0;right:0;bottom:0;left:0;height:auto;min-height:0;
+ overflow:hidden;overscroll-behavior:none;
+ padding:max(28px,env(safe-area-inset-top,0px)) 0 max(20px,env(safe-area-inset-bottom,0px));
+}
+html.android-ui .header{
+ flex:0 0 auto;min-height:58px;max-height:none;
+ padding:10px 14px 9px;position:relative;top:auto;z-index:10;
+}
+html.android-ui .studio-panel .visual{position:relative;order:0;flex:none;max-height:none;overflow:hidden;margin:0 0 12px;border-radius:10px;border:1px solid var(--border)}
+html.android-ui .studio-panel{
+ flex:1 1 0;min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;
+ overscroll-behavior-y:contain;touch-action:pan-y;
+ scroll-behavior:auto;-webkit-overflow-scrolling:touch;
+ scrollbar-gutter:stable;
+}
+html.android-ui .studio-panel[hidden]{display:none!important}
+html.android-ui .studio-tabs{
+ flex:0 0 auto;min-height:70px;max-height:80px;position:relative;
+ bottom:auto;z-index:11;margin:0;
+ padding:5px 8px max(8px,env(safe-area-inset-bottom,0px));
+}
+html.android-ui .studio-tabs button{min-width:0;min-height:54px;padding:5px 2px 7px}
+html.android-ui .tab-symbol{width:24px;height:24px;flex:0 0 24px}
+html.android-ui .tab-symbol svg{width:22px;height:22px;stroke-width:1.8}
+html.android-ui .studio-tabs button[aria-selected="true"]::after{bottom:2px}

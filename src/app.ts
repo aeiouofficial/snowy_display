@@ -202,18 +202,33 @@ async function refreshOverlayStatus():Promise<void>{
   }
  }catch(err){overlayStatus.textContent='Overlay status unavailable: '+String(err);}
 }
-let overlayUpdateQueued=false;
-function scheduleOverlayUpdate():void{
- if(!isAndroid||!overlayRunning||overlayUpdateQueued)return;
- overlayUpdateQueued=true;
- queueMicrotask(()=>{
-  overlayUpdateQueued=false;
-  if(!overlayRunning)return;
-  void androidOverlayAction('update').catch(err=>{
+// Serialize native overlay updates: otherwise a slow stale update can overwrite
+// a newly selected theme or settings value in the Android service.
+let nativeUpdateRevision=0;
+let nativeUpdateInFlight=false;
+async function flushNativeOverlayUpdates():Promise<void>{
+ if(nativeUpdateInFlight||!isAndroid||!overlayRunning)return;
+ nativeUpdateInFlight=true;
+ try {
+  while(overlayRunning){
+   const revision=nativeUpdateRevision;
+   try {
+    await androidOverlayAction('update');
+   }catch(err){
     console.warn('[snowy] Android overlay settings update failed',err);
-    overlayStatus.textContent='Settings were saved, but the Android overlay update failed. Open System to retry.';
-  });
- });
+    overlayStatus.textContent='Native weather update failed. Use Start weather to retry.';
+    break;
+   }
+   if(revision===nativeUpdateRevision)break;
+  }
+ }finally{
+  nativeUpdateInFlight=false;
+ }
+}
+function scheduleOverlayUpdate():void{
+ if(!isAndroid||!overlayRunning)return;
+ nativeUpdateRevision++;
+ void flushNativeOverlayUpdates();
 }
 async function startAndroidOverlay():Promise<void>{
  if(overlayActionBusy)return;
@@ -231,7 +246,10 @@ async function startAndroidOverlay():Promise<void>{
   markPendingOverlayStart(false);
   if(!state.running) {
    const started=await androidOverlayAction('start');
-   if(started.running) displayOverlayStatus(started);
+   if(started.running) {
+     displayOverlayStatus(started);
+     scheduleOverlayUpdate();
+   }
    else {
     overlayStatus.textContent='Permission approved. Starting weather across other apps…';
     overlayQuick.textContent='Starting…';
@@ -250,17 +268,40 @@ async function stopAndroidOverlay():Promise<void>{
  markPendingOverlayStart(false);
  try{displayOverlayStatus(await androidOverlayAction('stop'));}
  catch(err){overlayStatus.textContent='Overlay stop failed: '+String(err);}
- finally{overlayActionBusy=false;}
+ finally{
+   nativeUpdateRevision++;
+   overlayActionBusy=false;
+ }
  window.setTimeout(()=>{void refreshOverlayStatus()},250);
 }
 if(isAndroid){
  // Mobile: header and bottom navigation are siblings of the scrollable panel.
  // Never put navigation inside a panel or scroll the entire WebView.
  const tabs = document.querySelector<HTMLElement>('#studio-tabs')!;
+ // Stable Android WebView viewport. The surrounding document must never scroll
+ // or pan beneath the OS status bar; each active tab owns the only vertical scroll.
+ document.documentElement.classList.add('mobile-shell-ready');
  const scenesPanel = document.querySelector<HTMLElement>('#panel-scenes')!;
  const shell = document.querySelector<HTMLElement>('.app-shell')!;
  shell.insertBefore(tabs,shell.querySelector('footer'));
- scenesPanel.prepend(document.querySelector<HTMLElement>('.visual')!);
+ const visual=shell.querySelector<HTMLElement>('.visual')!;
+ scenesPanel.prepend(visual);
+ const previewButton=document.createElement('button');
+ previewButton.id='mobile-preview-toggle';
+ previewButton.type='button';
+ previewButton.setAttribute('aria-controls','scene');
+ const previewKey='snowy-display:mobile-preview-collapsed';
+ function collapsePreview(collapsed:boolean):void{
+  visual.classList.toggle('preview-collapsed',collapsed);
+  previewButton.textContent=collapsed?'Show live preview':'Hide preview';
+  previewButton.setAttribute('aria-expanded',String(!collapsed));
+  try{localStorage.setItem(previewKey,String(collapsed));}catch{/* Storage may be unavailable */}
+ }
+ visual.querySelector('.preview-head')!.append(previewButton);
+ let initialCollapsed=false;
+ try{initialCollapsed=localStorage.getItem(previewKey)==='true';}catch{/* Use default expanded */}
+ collapsePreview(initialCollapsed);
+ previewButton.addEventListener('click',()=>collapsePreview(!visual.classList.contains('preview-collapsed')));
  androidControls.hidden=false;overlayQuick.hidden=false;
  document.querySelector<HTMLElement>('#android-interaction-note')!.hidden=false;
  const systemPanel=document.querySelector<HTMLElement>('#panel-system')!;
@@ -402,7 +443,9 @@ const elementRects = () => Array.from(scene.querySelectorAll<HTMLElement>('[data
   return { id: el.dataset.window!, x: a.x - b.x, y: a.y - b.y, width: a.width, height: a.height, z: 2 - z } satisfies Surface;
 });
 function sizePreview(): void {
-  const b = scene.getBoundingClientRect(); ctx = fitCanvas(canvas, b.width, b.height);
+  const b = scene.getBoundingClientRect();
+  if(b.width<4||b.height<4)return; // Collapsed preview: retain current simulation.
+  ctx = fitCanvas(canvas, b.width, b.height);
   engine.resize(b.width, b.height); engine.setSurfaces([...elementRects(), { id: 'floor', x: 0, y: b.height - 3, width: b.width, height: 5, z: -100 }], performance.now()/1000);
 }
 new ResizeObserver(sizePreview).observe(scene);
@@ -411,6 +454,10 @@ let lastVisual=0;
 let lastCalendarDay=new Date().getDate();
 function animate(now: number): void {
   requestAnimationFrame(animate);
+  // Keep collapsed previews CPU-idle while leaving the native weather active.
+  if(isAndroid && scene.closest('.visual')?.classList.contains('preview-collapsed')){
+    last=now;return;
+  }
   const interval=1000/PERFORMANCE[resolvePerformance(config.performanceMode)].fps;
   if(now-lastVisual<interval)return;
   lastVisual=now;

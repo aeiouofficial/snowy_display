@@ -9,9 +9,11 @@ const plugin=path('src-tauri/android-native/SnowOverlayPlugin.kt');
 const rust=path('src-tauri/src/lib.rs');
 test('Android bottom navigation follows panels; no panel or whole page owns header and tabs',()=>{
  assert.match(app,/shell\.insertBefore\(tabs,shell\.querySelector\('footer'\)\)/);
- assert.match(app,/scenesPanel\.prepend\(document\.querySelector<HTMLElement>\('\.visual'\)!\)/);
- assert.match(css,/\.android-ui \.studio-tabs\{[\s\S]*?order:2/);
- assert.match(css,/\.android-ui \.studio-panel\{[\s\S]*?order:1;flex:1 1 0/);
+ assert.ok(app.includes('scenesPanel.prepend(visual)'),'preview must scroll within Scenes, never occupy other tabs');
+ assert.ok(app.includes("aria-expanded"));
+ assert.ok(app.includes('preview-collapsed'));
+ assert.ok(css.includes('.android-ui .studio-tabs{order:3}'));
+ assert.ok(css.includes('.android-ui .studio-panel{order:2}'));
  assert.match(css,/\.android-ui \.studio-panel\{[\s\S]*?overflow-y:auto;overflow-x:hidden/);
  assert.match(css,/\.android-ui \.app-shell\{[\s\S]*?height:100dvh/);
  assert.match(css,/\.android-ui \.header\{[\s\S]*?padding-top:max\(10px,env\(safe-area-inset-top/);
