@@ -7,6 +7,13 @@ No version has been tagged yet; everything below is unreleased alpha work on
 
 ## [Unreleased]
 
+### Added (2026-10-15 · cross-monitor and content-platform alpha)
+- **Unified multi-monitor world**: native physical-pixel monitor topology (negative coordinates and mixed DPI), monitor hotplug/resizing reconciliation, coordinator + broadcast of a shared snow simulation to per-monitor canvas views; follower fallback if synchronization is unavailable.
+- **Performance tiers**: Eco, Balanced and High cap frame rate, particle budgets, synchronization frequency and window geometry polls, avoiding redundant per-monitor physics work.
+- **Twenty-one seasonal/weather/event environments** spanning snow, rain, cherry blossoms, pollen, leaves, fireflies, starry nights, Halloween bats/embers, Advent weeks one through four, Christmas, New Year and cosmic moods. Non-snow effects do not accumulate as snow.
+- **Automatic calendar mode** resolves seasonal themes and holidays locally without requiring location or weather services. Theme selection and performance profile persist in backward-compatible native settings.
+- Added six cross-monitor/calendar tests and four runtime/performance contracts; see `docs/CONTENT_PLATFORM.md` for constraints and future work.
+
 ### Fixed (2026-10-15)
 - **Production launch / ERR_CONNECTION_REFUSED**: a bare `cargo build --release` does not enable the Tauri production `custom-protocol` feature and therefore mistakenly opens `localhost:1420` in the release EXE. Windows releases must use `pythonw.exe scripts/build-release.py` (which runs `npm run build -- --no-bundle -- --offline`). The Windows GitHub Check job now verifies a bundled production-mode Tauri build.
 - **Occluded/minimized-window bleed**: maximized/fullscreen windows (top edge at or above y=6) are retained as occluders but never used for snow accumulation at the screen bezel. Closed, minimized and temporarily missing windows quietly discard snow instead of raining ghost clumps on underlying applications; physically moving windows can still shed. Covered bins cannot receive neighbor deposits; snow crests are clipped behind foreground windows.

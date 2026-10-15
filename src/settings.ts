@@ -1,9 +1,17 @@
 import { DEFAULT_SETTINGS, type Settings } from './physics.ts';
+import { DEFAULT_THEME, resolveTheme, calendarTheme } from './themes.ts';
+import { resolvePerformance, type PerformanceMode } from './desktop-world.ts';
 export const SETTINGS_KEY = 'snowy-display/settings-v1';
 export const SETTINGS_EVENT = 'snowy-display:settings';
 export const CLEAR_EVENT = 'snowy-display:clear-snow';
-export type AppSettings = Settings & { enabled: boolean };
-export const DEFAULT_APP_SETTINGS: AppSettings = { ...DEFAULT_SETTINGS, enabled: true };
+export type AppSettings = Settings & { enabled: boolean; themeId: string; automaticTheme: boolean; performanceMode: PerformanceMode };
+export function activeTheme(settings: Pick<AppSettings,'themeId'|'automaticTheme'>, now=new Date()) {
+  return resolveTheme(settings.automaticTheme ? calendarTheme(now) : settings.themeId);
+}
+export const DEFAULT_APP_SETTINGS: AppSettings = {
+  ...DEFAULT_SETTINGS, enabled: true, themeId: DEFAULT_THEME,
+  automaticTheme: false, performanceMode: 'balanced',
+};
 export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -16,6 +24,9 @@ export function loadSettings(): AppSettings {
       if (typeof obj[key] === 'number' && Number.isFinite(obj[key])) current[key] = obj[key];
     }
     if (typeof obj.enabled === 'boolean') current.enabled = obj.enabled;
+    current.themeId = resolveTheme(obj.themeId).id;
+    if (typeof obj.automaticTheme === 'boolean') current.automaticTheme = obj.automaticTheme;
+    current.performanceMode = resolvePerformance(obj.performanceMode);
     return current;
   } catch { return { ...DEFAULT_APP_SETTINGS }; }
 }
@@ -33,7 +44,13 @@ export async function fetchSettings(
   try {
     const fromBackend = await readNative();
     if (fromBackend && typeof fromBackend.snowfall === 'number') {
-      return fromBackend;
+      // Native persistence from older alpha releases may not contain theme fields.
+      return {
+        ...DEFAULT_APP_SETTINGS, ...fromBackend,
+        themeId: resolveTheme(fromBackend.themeId).id,
+        performanceMode: resolvePerformance(fromBackend.performanceMode),
+        automaticTheme: fromBackend.automaticTheme === true,
+      };
     }
   } catch {
     // Non-Tauri preview fallback

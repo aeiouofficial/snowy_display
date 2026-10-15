@@ -18,9 +18,9 @@ test('native overlay stays hidden until the renderer paints its first valid fram
   assert.doesNotMatch(nativeCreation, /\bw\.show\s*\(/,
     'showing native overlay before the JS canvas renders causes an empty visible overlay');
   const frame = overlay.slice(overlay.indexOf('function frame('));
-  const draw = frame.indexOf('drawSnow(ctx, engine, false)');
+  const draw = frame.indexOf('drawScene(ctx,lastScene');
   const show = frame.indexOf('ownWindow.show()');
-  assert.ok(draw >= 0 && show > draw, 'renderer must show only after successful drawSnow()');
+  assert.ok(draw >= 0 && show > draw, 'renderer must show only after successful drawScene()');
 });
 
 test('overlay webviews have the explicit Tauri permissions needed to show themselves', () => {

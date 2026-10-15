@@ -2,6 +2,15 @@
 
 ## New verified checks (2026-10-15)
 
+### Cross-display and theme content alpha
+
+- Source includes one global physical virtual desktop for all monitors; one coordinator runs snow physics and broadcasts frames, with per-display viewport/DPI transforms, instead of full independent world simulation on each screen.
+- Native monitor metadata and three-second topology watcher for display reconfiguration are added. On WebView synchronization failure, followers can run a temporary fallback scene; shared-world visual continuity requires hardware QA.
+- Twenty-one built-in weather/season/event themes with procedural particle renderers and four separate Advent editions; non-snow modes do not accumulate snow. Optional calendar automation and three performance profiles are exposed in the settings UI.
+- Latest completed Node/TypeScript run: **45/45 tests passed**; latest web production build PASS; new native monitor command `cargo check --release --offline --locked` PASS. Full Tauri release build/runtime test must be performed before declaring shipping success.
+- Architecture and open professional-product gates: `docs/CONTENT_PLATFORM.md`.
+
+
 ### Occlusion and duplicate-instance corrections
 
 - **Confirmed reason previous bleed fixes were insufficient:** native top-edge coordinates `y <= 6` were filtered from the entire overlay surface list. Maximized/fullscreen windows therefore were not occluders and snow from windows behind them could be drawn on top. They now remain in the z-order surface list while receiving no new snow at the monitor bezel.

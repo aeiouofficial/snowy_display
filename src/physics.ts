@@ -1,10 +1,11 @@
 /** Screen coordinates are in CSS pixels; higher z means closer to the user. */
-export interface Surface { id: string; x: number; y: number; width: number; height: number; z: number; hidden?: boolean }
+export interface Surface { id: string; x: number; y: number; width: number; height: number; z: number; hidden?: boolean; noAccumulation?: boolean }
 export interface Settings { snowfall: number; wind: number; gravity: number; cohesion: number; maxDepth: number }
 export interface Particle { x: number; y: number; vx: number; vy: number; radius: number; opacity: number; mass: number }
 export interface Pile { surface: Surface; bins: number[] }
 interface InternalPile { surface: Surface; bins: Float32Array; lastSeen: number }
 export const DEFAULT_SETTINGS: Settings = { snowfall: 0.67, wind: 0.2, gravity: 1, cohesion: 0.48, maxDepth: 34 };
+import { resolveTheme, type ParticleKind } from './themes.ts';
 const CELL = 7;
 const MAX_FLAKES = 1250;
 const MAX_CLUMPS = 220;
@@ -32,6 +33,9 @@ function distToSegment(px: number, py: number, x1: number, y1: number, x2: numbe
 
 export class SnowEngine {
   private randomState: number;
+  private particleMode: ParticleKind = 'snow';
+  private themeDensity = 1;
+  private particleLimit = MAX_FLAKES;
   private flakes: Particle[] = [];
   private clumps: Particle[] = [];
   private piles = new Map<string, InternalPile>();
@@ -53,6 +57,19 @@ export class SnowEngine {
   constructor(width: number, height: number, seed = 0x51f15) {
     this.width = width; this.height = height;
     this.randomState = (seed >>> 0) || 1;
+  }
+  setTheme(id: string): void {
+    const t=resolveTheme(id);
+    if(this.particleMode===t.particle && this.themeDensity===t.intensity) return;
+    this.particleMode=t.particle;
+    this.themeDensity=t.intensity;
+    this.flakes=[];
+    this.clumps=[];
+    for(const pile of this.piles.values()) pile.bins.fill(0);
+  }
+  setParticleLimit(count: number): void {
+    this.particleLimit=clamp(Math.floor(count),100,MAX_FLAKES);
+    if(this.flakes.length>this.particleLimit) this.flakes.length=this.particleLimit;
   }
   private rand(): number {
     let t = this.randomState += 0x6d2b79f5;
@@ -81,7 +98,7 @@ export class SnowEngine {
     const ordered = [...clean].sort((a, b) => b.z - a.z);
     // Maximized windows with top y <= 6 still OCCLUDE every window behind
     // them; only their own top bezel is ineligible for snow deposits.
-    const eligible = ordered.filter(s => s.y > 6);
+    const eligible = ordered.filter(s => s.y > 6 && !s.noAccumulation);
     const stepSeconds = Math.max(0.05, Math.min(2, atSeconds - this.previousSurfaceUpdate));
     for (const s of eligible) {
       const old = this.piles.get(s.id);
@@ -128,13 +145,18 @@ export class SnowEngine {
       other.y <= surface.y && other.y + other.height > surface.y);
   }
   private flake(): Particle {
-    const radius = 0.65 + this.rand() * 2.15;
+    const upward=this.particleMode==='embers'||this.particleMode==='fireflies';
+    const radius = this.particleMode==='rain' ? 0.6+this.rand()*0.65 :
+      this.particleMode==='snow' ? 0.65+this.rand()*2.15 : 1.2+this.rand()*3.4;
     const windSpan = this.settings.wind * Math.max(120, this.height * 0.75);
     const minX = windSpan > 0 ? -windSpan - 16 : -16;
     const maxX = windSpan < 0 ? this.width - windSpan + 16 : this.width + 16;
     const span = maxX - minX;
-    return { x: minX + this.rand() * span, y: -8 - this.rand() * 55,
-      vx: this.rand() * 18 - 9, vy: 21 + this.rand() * 34, radius,
+    return { x: minX + this.rand() * span,
+      y: upward ? this.height + 8 + this.rand()*45 : -8 - this.rand()*55,
+      vx: this.rand() * 18 - 9,
+      vy: upward ? -22-this.rand()*31 : this.particleMode==='rain' ? 180+this.rand()*125 : 21+this.rand()*34,
+      radius,
       opacity: 0.45 + this.rand() * 0.5, mass: 0.4 + radius * 0.25 };
   }
   /** Add snow mass to a bin; used by deterministic integration tests too. */
@@ -197,13 +219,23 @@ export class SnowEngine {
       const fromX = p.x;
       const fromY = p.y;
       const turbulence = Math.sin(this.time * 1.7 + p.x * 0.023 + p.y * 0.015) * 8;
-      p.vx += ((wind + turbulence - p.vx) * (clump ? 0.23 : 0.75)) * dt;
-      p.vy += (clump ? 420 : 14) * this.settings.gravity * dt;
-      p.vy = Math.min(p.vy, clump ? 430 : 90 * this.settings.gravity);
+      if (!clump && this.particleMode!=='snow') {
+        const kind=this.particleMode;
+        const flutter=(kind==='leaves'||kind==='petals'||kind==='bats') ? 42 : 9;
+        const targetVx=wind*0.45+Math.sin(this.time*2.3+p.y*.024+p.x*.01)*flutter;
+        p.vx+=(targetVx-p.vx)*Math.min(1,dt*1.5);
+        if(kind==='embers'||kind==='fireflies') p.vy=Math.max(-85,p.vy-8*dt);
+        else if(kind==='rain') p.vy=Math.min(420,p.vy+40*dt);
+        else p.vy=Math.min(120,p.vy+(kind==='stars'?3:11)*dt*this.settings.gravity);
+      } else {
+        p.vx += ((wind + turbulence - p.vx) * (clump ? 0.23 : 0.75)) * dt;
+        p.vy += (clump ? 420 : 14) * this.settings.gravity * dt;
+        p.vy = Math.min(p.vy, clump ? 430 : 90 * this.settings.gravity);
+      }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      if (p.x < minBound || p.x > maxBound || p.y > this.height + 22) { array.splice(i, 1); continue; }
-      const impact = this.hit(fromX, fromY, p.x, p.y);
+      if (p.x < minBound || p.x > maxBound || p.y > this.height + 55 || p.y < -70) { array.splice(i, 1); continue; }
+      const impact = (this.particleMode==='snow'||clump) ? this.hit(fromX, fromY, p.x, p.y):null;
       if (impact) {
         if (clump && (p.mass > 1.3 || p.vy > 90) && this.flakes.length < MAX_FLAKES - 4) {
           // Hard clump impact: deposit bulk mass, splatter secondary micro-flakes
@@ -274,16 +306,17 @@ export class SnowEngine {
     const dt = Math.min(1 / 30, dtSeconds);
     this.time += dt;
     const windSpan = Math.abs(this.settings.wind) * Math.max(120, this.height * 0.75);
-    const rate = this.settings.snowfall * (16 + (this.width + windSpan) / 4.5);
+    const rate = this.settings.snowfall * (16 + (this.width + windSpan) / 4.5)
+      * (this.particleMode==='snow'?1:this.themeDensity);
     this.spawnRemainder += rate * dt;
     while (this.spawnRemainder >= 1) {
       this.spawnRemainder--;
-      if (this.flakes.length < MAX_FLAKES) this.flakes.push(this.flake());
+      if (this.flakes.length < this.particleLimit) this.flakes.push(this.flake());
     }
     this.updateParticles(this.flakes, dt, false);
     this.updateParticles(this.clumps, dt, true);
     this.applyContinuousMouse(dt);
-    this.settle(dt);
+    if(this.particleMode==='snow') this.settle(dt);
   }
   snapshot(): { flakes: readonly Particle[]; clumps: readonly Particle[]; piles: Pile[]; surfaces: readonly Surface[] } {
     return { flakes: this.flakes, clumps: this.clumps, surfaces: this.surfaces,

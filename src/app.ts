@@ -1,6 +1,9 @@
 import { SnowEngine, type Surface } from './physics.ts';
 import { drawSnow, fitCanvas } from './render.ts';
 import { loadSettings, saveSettings, fetchSettings, broadcastSettings, broadcastClearSnow, type AppSettings } from './settings.ts';
+import { THEMES } from './themes.ts';
+import { PERFORMANCE, resolvePerformance } from './desktop-world.ts';
+import { activeTheme, DEFAULT_APP_SETTINGS } from './settings.ts';
 import './style.css';
 
 const target = document.querySelector<HTMLDivElement>('#app');
@@ -15,6 +18,21 @@ target.innerHTML = `
         <canvas id="preview" aria-label="Live interactive snow physics simulation"></canvas>
       </div>
     </section>
+    <section class="environment-controls" aria-label="Seasonal and weather themes">
+      <div class="section-title"><h2>Atmosphere & seasons</h2><span class="content-count" id="theme-count">Theme catalog</span></div>
+      <div class="environment-grid">
+        <label class="environment-field" for="theme"><span>Theme collection</span><select id="theme"></select></label>
+        <label class="environment-field" for="quality"><span>Performance</span><select id="quality">
+          <option value="eco">Eco · 24 FPS</option><option value="balanced">Balanced · 36 FPS</option>
+          <option value="high">High · 60 FPS</option>
+        </select></label>
+      </div>
+      <div id="theme-description" class="environment-description" aria-live="polite"></div>
+      <label class="calendar-row" for="auto-theme"><input type="checkbox" id="auto-theme" />
+        <span>Automatic seasonal calendar<small>Halloween, Advent weeks 1–4, Christmas, New Year & seasons</small></span>
+      </label>
+      <p class="content-note">Only snow themes accumulate. Other effects stay airborne and never build up on windows.</p>
+    </section>
     <section class="controls" aria-label="Snow physics settings">
       <div class="section-title"><h2>Snow simulation</h2><button class="toggle" id="enabled" role="switch" aria-checked="true" aria-label="Toggle snowfall"><span></span></button></div>
       <div class="preset-bar" id="presets"></div>
@@ -24,6 +42,19 @@ target.innerHTML = `
     <footer><span>Native desktop overlays: Windows · macOS · Linux X11</span><span>Mobile: in-app preview</span></footer>
   </main>`;
 
+document.querySelector<HTMLElement>('#theme-count')!.textContent=`${THEMES.length} environments`;
+const themeSelect=document.querySelector<HTMLSelectElement>('#theme')!;
+const qualitySelect=document.querySelector<HTMLSelectElement>('#quality')!;
+const autoTheme=document.querySelector<HTMLInputElement>('#auto-theme')!;
+const themeDescription=document.querySelector<HTMLElement>('#theme-description')!;
+for(const category of ['Winter','Spring','Summer','Autumn','Events','Atmosphere']) {
+  const group=document.createElement('optgroup');group.label=category;
+  for(const t of THEMES.filter(t=>t.category===category)) {
+    const option=document.createElement('option');option.value=t.id;option.textContent=t.name;
+    group.appendChild(option);
+  }
+  themeSelect.appendChild(group);
+}
 const scene = document.querySelector<HTMLElement>('#scene')!;
 const canvas = document.querySelector<HTMLCanvasElement>('#preview')!;
 const engine = new SnowEngine(420, 300);
@@ -70,6 +101,16 @@ for (const item of specs) {
 const toggle = document.querySelector<HTMLButtonElement>('#enabled')!;
 function update(persist = true): void {
   engine.configure(config);
+  const theme=activeTheme(config);
+  engine.setTheme(theme.id);
+  engine.setParticleLimit(PERFORMANCE[resolvePerformance(config.performanceMode)].particles);
+  themeSelect.value=theme.id;
+  themeSelect.disabled=config.automaticTheme;
+  qualitySelect.value=resolvePerformance(config.performanceMode);
+  autoTheme.checked=config.automaticTheme;
+  themeDescription.textContent=theme.description;
+  scene.dataset.theme=theme.category.toLowerCase();
+  document.documentElement.style.setProperty('--accent-cyan',theme.accent);
   toggle.setAttribute('aria-checked', String(config.enabled));
   for (const spec of specs) {
     const field = document.querySelector<HTMLInputElement>(`#${spec.key}`)!;
@@ -86,9 +127,18 @@ function update(persist = true): void {
     void broadcastSettings(config);
   }
 }
+themeSelect.addEventListener('change',()=> {
+  config={...config,themeId:themeSelect.value,automaticTheme:false};update();
+});
+qualitySelect.addEventListener('change',()=>{
+  config={...config,performanceMode:resolvePerformance(qualitySelect.value)};update();
+});
+autoTheme.addEventListener('change',()=>{
+  config={...config,automaticTheme:autoTheme.checked};update();
+});
 toggle.addEventListener('click', () => { config.enabled = !config.enabled; update(); });
 document.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', () => {
-  config = { snowfall: .67, wind: .2, gravity: 1, cohesion: .48, maxDepth: 34, enabled: true }; update();
+  config = {...DEFAULT_APP_SETTINGS}; update();
 });
 document.querySelector<HTMLButtonElement>('#clear')!.addEventListener('click', () => {
   engine.clear();
@@ -113,13 +163,25 @@ function sizePreview(): void {
 }
 new ResizeObserver(sizePreview).observe(scene);
 let last = performance.now();
+let lastVisual=0;
+let lastCalendarDay=new Date().getDate();
 function animate(now: number): void {
-  const dt = Math.min(.06, (now - last) / 1000); last = now;
-  engine.setSurfaces([...elementRects(), { id: 'floor', x: 0, y: engine.height - 3, width: engine.width, height: 5, z: -100 }], now / 1000);
-  if (config.enabled) engine.step(dt);
-  if (config.enabled) drawSnow(ctx, engine, false);
-  else ctx.clearRect(0, 0, engine.width, engine.height);
   requestAnimationFrame(animate);
+  const interval=1000/PERFORMANCE[resolvePerformance(config.performanceMode)].fps;
+  if(now-lastVisual<interval)return;
+  lastVisual=now;
+  if(config.automaticTheme) {
+    const today=new Date();
+    if(today.getDate()!==lastCalendarDay) {lastCalendarDay=today.getDate();update(false);}
+  }
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  engine.setSurfaces([...elementRects(), { id: 'floor', x: 0, y: engine.height - 3, width: engine.width, height: 5, z: -100 }], now / 1000);
+  if (config.enabled) {
+    for(let remaining=dt;remaining>0;) {
+      const step=Math.min(1/30,remaining);engine.step(step);remaining-=step;
+    }
+    drawSnow(ctx,engine,false,activeTheme(config).id);
+  } else ctx.clearRect(0, 0, engine.width, engine.height);
 }
 sizePreview(); requestAnimationFrame(animate);
 for (const el of scene.querySelectorAll<HTMLElement>('[data-window]')) {

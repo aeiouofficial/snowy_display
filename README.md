@@ -15,7 +15,15 @@ Open-source snow accumulation on real desktop application windows. Snow builds u
 
 **CI: frontend and Windows/Linux/macOS native cargo checks pass (4/4).** Android APK builds run on feature-branch source changes or via manual workflow dispatch; still unverified until an artifact is produced.
 
-**Status: alpha.** TypeScript and physics tests (35/35 at the latest local pass), Vite production build, and native offline Windows release-check pass. Hardware window-occlusion acceptance remains outstanding. Live overlay behaviour (click-through, z-order, mixed DPI, fullscreen pause) has **not** yet been verified on real hardware for any OS. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only. Changes are tracked in `CHANGELOG.md`.
+**Status: alpha.** The expanded frontend/physics suite passes 45/45 tests locally; Vite production and Windows native offline release checks pass. Multi-display and new seasonal content are implemented but still require physical runtime acceptance. Hardware window-occlusion acceptance remains outstanding. Live overlay behaviour (click-through, z-order, mixed DPI, fullscreen pause) has **not** yet been verified on real hardware for any OS. This is not a released, QA-complete app. Running the Vite UI in a web browser displays the interactive physics preview only. Changes are tracked in `CHANGELOG.md`.
+
+## Shared displays and seasonal atmospheres
+
+Connected monitors form one virtual desktop in physical pixels: the first overlay coordinates the particles and snow heightfields while other overlays render the same scene at their own DPI scales. The monitor topology is refreshed automatically, including negative display origins and reconfiguration after hotplug. Repeated Snowy Display starts are blocked by an OS-level single-instance lock.
+
+Choose among **21 procedurally rendered themes** in Winter, Spring, Summer, Autumn, Events and Atmosphere. Themes include snow, rain, blossoms, leaves, fireflies, pollen, bats, sparks, stars and confetti. Events include Halloween, Advent weeks one through four, Christmas and New Year. Optional calendar automation selects themes locally without weather/location services. Snow effects accumulate on exposed windows; other effects do not leave snowdrifts. Three quality modes set conservative (Eco), balanced and high particle/FPS budgets. Theme configuration persists with other settings.
+
+See [`docs/CONTENT_PLATFORM.md`](docs/CONTENT_PLATFORM.md) for the architecture, measured vs. unverified claims and the roadmap for professional content packs, API integrations, diagnostics and installers.
 
 ## Develop
 
@@ -45,7 +53,7 @@ Android Studio, Android SDK, NDK, JDK 17+, Rust Android targets, USB/ADB are req
 
 ## Physics model
 
-Pure TypeScript deterministic engine (`src/physics.ts`) shared unchanged across desktop, mobile and browser. Per-window heightfields (7 CSS px cells) track deposited snow mass and exposed top edges. The engine simulates stochastic flakes, gravity, turbulent wind, collision, slope-driven mass transport (angle of repose), edge overhang shedding, window velocity induced snow release, and clump transfer to surfaces below. Live adjustable cohesion, snowfall, wind, gravity and max depth; per-frame particle caps and bounded timestep. Rendering uses transparent Canvas2D with clipped window interiors, procedural snow mesh silhouette and subtle lighting.
+Pure TypeScript deterministic engine (`src/physics.ts`) shared across desktop, mobile and browser. Seasonal particle modes extend the snow-specific heightfield solver. Per-window heightfields (7 CSS px cells) track deposited snow mass and exposed top edges. The engine simulates stochastic flakes, gravity, turbulent wind, collision, slope-driven mass transport (angle of repose), edge overhang shedding, window velocity induced snow release, and clump transfer to surfaces below. Live adjustable cohesion, snowfall, wind, gravity and max depth; per-frame particle caps and bounded timestep. Rendering uses transparent Canvas2D with clipped window interiors, procedural snow mesh silhouette and subtle lighting.
 
 This is deliberately **a heightfield approximation**, not a validated continuum snow dynamics solver. Snow never accesses window content. It uses only window bounds and stacking order. Current limitations: partial-window occlusion and overlapping monitors/HiDPI coordinate normalization require physical machine testing; particle density may need tuning after profiling. The overlay itself is excluded from native window tracking by process ID.
 

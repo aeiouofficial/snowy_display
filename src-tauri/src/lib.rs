@@ -11,7 +11,15 @@ pub struct AppSettings {
     pub cohesion: f64,
     pub max_depth: f64,
     pub enabled: bool,
+    #[serde(default = "default_theme_id")]
+    pub theme_id: String,
+    #[serde(default)]
+    pub automatic_theme: bool,
+    #[serde(default = "default_performance_mode")]
+    pub performance_mode: String,
 }
+fn default_theme_id() -> String { "winter-snow".into() }
+fn default_performance_mode() -> String { "balanced".into() }
 
 impl Default for AppSettings {
     fn default() -> Self {
@@ -22,6 +30,9 @@ impl Default for AppSettings {
             cohesion: 0.48,
             max_depth: 34.0,
             enabled: true,
+            theme_id: default_theme_id(),
+            automatic_theme: false,
+            performance_mode: default_performance_mode(),
         }
     }
 }
@@ -137,6 +148,31 @@ fn setup_tray_and_window(app: &mut tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DesktopMonitor {
+    id: String,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    scale_factor: f64,
+}
+
+#[tauri::command]
+fn desktop_monitors(window: tauri::WebviewWindow) -> Vec<DesktopMonitor> {
+    window.available_monitors().unwrap_or_default().iter().enumerate().map(|(idx, m)| {
+        DesktopMonitor {
+            id: format!("display-{idx}"),
+            x: m.position().x,
+            y: m.position().y,
+            width: m.size().width,
+            height: m.size().height,
+            scale_factor: m.scale_factor(),
+        }
+    }).collect()
+}
+
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn create_overlays(app: &tauri::AppHandle) {
     use tauri::{Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
@@ -150,12 +186,17 @@ fn create_overlays(app: &tauri::AppHandle) {
 
     if let Some(main) = app.get_webview_window("main") {
         if let Ok(monitors) = main.available_monitors() {
+            let mut valid_labels = std::collections::HashSet::new();
             for (index, monitor) in monitors.iter().enumerate() {
                 let label = format!("snow-overlay-{index}");
-                if app.get_webview_window(&label).is_some() {
+                valid_labels.insert(label.clone());
+                if let Some(w) = app.get_webview_window(&label) {
+                    // Reconcile changing resolution, DPI and monitor positions on hotplug.
+                    let _ = w.set_position(PhysicalPosition::new(monitor.position().x, monitor.position().y));
+                    let _ = w.set_size(PhysicalSize::new(monitor.size().width, monitor.size().height));
                     continue;
                 }
-                let w = WebviewWindowBuilder::new(
+                let built = WebviewWindowBuilder::new(
                     app, label, WebviewUrl::App("overlay.html".into()))
                     .title("Snowy Display Overlay")
                     .transparent(true).decorations(false).shadow(false)
@@ -164,15 +205,33 @@ fn create_overlays(app: &tauri::AppHandle) {
                     .inner_size((monitor.size().width as f64) / monitor.scale_factor(),
                                 (monitor.size().height as f64) / monitor.scale_factor())
                     .build();
-                if let Ok(w) = w {
+                if let Ok(w) = built {
                     let _ = w.set_position(PhysicalPosition::new(monitor.position().x, monitor.position().y));
                     let _ = w.set_size(PhysicalSize::new(monitor.size().width, monitor.size().height));
                     let _ = w.set_ignore_cursor_events(true);
-                    // Keep hidden until the JS renderer draws its first frame successfully.
+                    // Renderer reveals its overlay only after its first successful paint.
+                }
+            }
+            for (label, window) in app.webview_windows() {
+                if label.starts_with("snow-overlay-") && !valid_labels.contains(&label) {
+                    let _ = window.destroy();
                 }
             }
         }
     }
+}
+
+/// Poll display topology only every three seconds; geometry within each
+/// display is handled separately by the single simulation coordinator.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn spawn_monitor_watcher(app: tauri::AppHandle) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        let handle = app.clone();
+        if app.run_on_main_thread(move || create_overlays(&handle)).is_err() {
+            break; // Tauri event loop closed.
+        }
+    });
 }
 
 #[tauri::command]
@@ -224,6 +283,7 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             window_geometry::desktop_snapshot,
+            desktop_monitors,
             get_desktop_settings,
             save_desktop_settings,
             clear_desktop_snow,
@@ -243,6 +303,7 @@ pub fn run() {
             .run(|app, event| {
                 if let tauri::RunEvent::Ready = event {
                     create_overlays(app);
+                    spawn_monitor_watcher(app.clone());
                     spawn_cursor_tracker(app.clone());
                 }
             });
