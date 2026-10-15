@@ -331,9 +331,9 @@ mod android_weather {
     pub fn control(
         state: tauri::State<'_, Overlay>,
         action: String,
-        settings: Option<AppSettings>,
+        settings: Option<serde_json::Value>,
     ) -> Result<serde_json::Value, String> {
-        if !matches!(action.as_str(), "status" | "permission" | "start" | "stop" | "update") {
+        if !matches!(action.as_str(), "status" | "permission" | "start" | "stop" | "update" | "clear") {
             return Err("Unsupported overlay action".into());
         }
         state.0.run_mobile_plugin(action.as_str(), serde_json::json!({ "settings": settings }))

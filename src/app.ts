@@ -70,7 +70,8 @@ target.innerHTML = `<main class="app-shell">
 <section id="panel-activity" class="studio-panel" role="tabpanel" aria-labelledby="tab-activity" hidden>
  <div class="panel-heading"><span class="eyebrow">REACTIVE DESKTOP</span>
   <div class="heading-row"><h2>Activities & spells</h2><span class="content-count">7 tools</span></div>
-  <p>Footprints, snow displacement and magic gestures interact with real surfaces.</p></div>
+  <p>Footprints, snow displacement and magic gestures interact with real surfaces.</p>
+  <p id="android-interaction-note" class="block-note" hidden>Android: Touch interactions work in the live preview. The system-wide overlay remains click-through; Android does not expose other apps' private window surfaces or taps.</p></div>
  <div class="settings-block"><h3>Pointer tools</h3>
   <div id="interaction-tools" class="interaction-grid" role="group" aria-label="Select an interactive tool"></div>
   <div id="interaction-description" class="interaction-description" aria-live="polite"></div>
@@ -167,10 +168,13 @@ function markPendingOverlayStart(pending:boolean):void {
   else sessionStorage.removeItem(OVERLAY_PENDING_KEY);
  } catch { /* Session storage can be disabled; in-memory state still works. */ }
 }
-async function androidOverlayAction(action:'status'|'permission'|'start'|'stop'|'update'):Promise<OverlayStatus> {
+async function androidOverlayAction(action:'status'|'permission'|'start'|'stop'|'update'|'clear'):Promise<OverlayStatus> {
  const {invoke}=await import('@tauri-apps/api/core');
+ const active=activeTheme(config);
  return invoke<OverlayStatus>('control',{
-  action,settings:{...config,themeId:activeTheme(config).id}
+  action,settings:{...config,themeId:active.id,
+    particleType:active.particle,primaryColor:active.color,secondaryColor:active.secondary,
+    themeIntensity:active.intensity,accumulating:active.accumulating}
  });
 }
 function displayOverlayStatus(value:OverlayStatus):void {
@@ -197,6 +201,19 @@ async function refreshOverlayStatus():Promise<void>{
    markPendingOverlayStart(false);
   }
  }catch(err){overlayStatus.textContent='Overlay status unavailable: '+String(err);}
+}
+let overlayUpdateQueued=false;
+function scheduleOverlayUpdate():void{
+ if(!isAndroid||!overlayRunning||overlayUpdateQueued)return;
+ overlayUpdateQueued=true;
+ queueMicrotask(()=>{
+  overlayUpdateQueued=false;
+  if(!overlayRunning)return;
+  void androidOverlayAction('update').catch(err=>{
+    console.warn('[snowy] Android overlay settings update failed',err);
+    overlayStatus.textContent='Settings were saved, but the Android overlay update failed. Open System to retry.';
+  });
+ });
 }
 async function startAndroidOverlay():Promise<void>{
  if(overlayActionBusy)return;
@@ -237,13 +254,25 @@ async function stopAndroidOverlay():Promise<void>{
  window.setTimeout(()=>{void refreshOverlayStatus()},250);
 }
 if(isAndroid){
- // The controls should stay pinned; only the active tab's contents scroll.
+ // Mobile: header and bottom navigation are siblings of the scrollable panel.
+ // Never put navigation inside a panel or scroll the entire WebView.
  const tabs = document.querySelector<HTMLElement>('#studio-tabs')!;
  const scenesPanel = document.querySelector<HTMLElement>('#panel-scenes')!;
  const shell = document.querySelector<HTMLElement>('.app-shell')!;
- shell.insertBefore(tabs,scenesPanel);
+ shell.insertBefore(tabs,shell.querySelector('footer'));
  scenesPanel.prepend(document.querySelector<HTMLElement>('.visual')!);
  androidControls.hidden=false;overlayQuick.hidden=false;
+ document.querySelector<HTMLElement>('#android-interaction-note')!.hidden=false;
+ const systemPanel=document.querySelector<HTMLElement>('#panel-system')!;
+ systemPanel.querySelector<HTMLElement>('.panel-heading > p')!.textContent=
+   'One transparent, click-through weather overlay across compatible Android apps. Only Snowy Display needs the overlay permission.';
+ const sysRows=systemPanel.querySelectorAll<HTMLElement>('.system-row');
+ if(sysRows.length>=2){
+  sysRows[0].querySelector('span')!.textContent='Display topology';
+  sysRows[0].querySelector('strong')!.textContent='Phone display';
+  sysRows[1].querySelector('span')!.textContent='Touch handling';
+  sysRows[1].querySelector('strong')!.textContent='Passes through';
+ }
  overlayStartButton.addEventListener('click',()=>{void startAndroidOverlay()});
  overlayStopButton.addEventListener('click',()=>{void stopAndroidOverlay()});
  overlayQuick.addEventListener('click',()=>{void (overlayRunning?stopAndroidOverlay():startAndroidOverlay())});
@@ -331,9 +360,9 @@ function update(persist = true): void {
     const active = p && Object.entries(p).every(([k, v]) => Math.abs((config as any)[k] - (v as number)) < 0.02);
     chip.classList.toggle('active', !!active);
   }
-  if (isAndroid && overlayRunning) {
-    void androidOverlayAction('update').catch(err=>console.warn('[snowy] Android overlay update failed',err));
-  }
+  // Forward EVERY setting (not only precipitation) to the native Android
+  // service, which renders above other applications with the same scene ID.
+  if (isAndroid && overlayRunning) scheduleOverlayUpdate();
   if (persist) {
     editRevision += 1;
     void broadcastSettings(config);
@@ -355,6 +384,9 @@ document.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', (
 document.querySelector<HTMLButtonElement>('#clear')!.addEventListener('click', () => {
   engine.clear();
   void broadcastClearSnow();
+  if(isAndroid&&overlayRunning){
+    void androidOverlayAction('clear').catch(err=>console.warn('[snowy] clear mobile piles failed',err));
+  }
 });
 update(false);
 const hydrationRevision = editRevision;
