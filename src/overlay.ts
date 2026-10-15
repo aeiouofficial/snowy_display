@@ -6,6 +6,7 @@ import { drawScene, fitCanvas, type SnowScene } from './render.ts';
 import { normalizeDesktop, localViewport, worldSurfaces, PERFORMANCE,
   resolvePerformance, type Display, type DesktopWorld, type Viewport } from './desktop-world.ts';
 import { activeTheme, loadSettings, fetchSettings, SETTINGS_EVENT, CLEAR_EVENT, type AppSettings } from './settings.ts';
+import { INTERACTION_TOOLS, normalizeTool } from './interactions.ts';
 
 const canvas=document.querySelector<HTMLCanvasElement>('#snow');
 if(!canvas) throw new Error('[snowy] no transparent overlay canvas');
@@ -116,10 +117,20 @@ async function refreshSurfaces():Promise<void> {
 // Cursor information is global physical desktop position. Only the coordinator
 // receives/uses it: listeners in follower WebViews cannot perturb the physics.
 if(isCoordinator) {
+  let lastToolAt=0,lastToolX=-10000,lastToolY=-10000;
   void listen<[number,number]>('cursor-move',event=>{
     const [x,y]=event.payload;
-    engine.interactMouse(x-desktop.x,y-desktop.y,performance.now()/1000);
-  }).catch(()=>{});
+    const localX=x-desktop.x, localY=y-desktop.y, now=performance.now();
+    engine.interactMouse(localX,localY,now/1000);
+    const tool=normalizeTool(config.interactionMode);
+    if(tool==='none'||!config.enabled)return;
+    const spec=INTERACTION_TOOLS.find(item=>item.id===tool)!;
+    if(now-lastToolAt<spec.intervalMs ||
+      Math.hypot(localX-lastToolX,localY-lastToolY)<12)return;
+    if(engine.applyTool(tool,localX,localY,now/1000)) {
+      lastToolAt=now;lastToolX=localX;lastToolY=localY;
+    }
+  }).catch(error=>console.warn('[snowy] cursor interaction event failed',error));
 }
 let lastScene:SnowScene=engine.snapshot();
 async function initialize():Promise<void>{

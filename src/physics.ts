@@ -2,10 +2,13 @@
 export interface Surface { id: string; x: number; y: number; width: number; height: number; z: number; hidden?: boolean; noAccumulation?: boolean }
 export interface Settings { snowfall: number; wind: number; gravity: number; cohesion: number; maxDepth: number }
 export interface Particle { x: number; y: number; vx: number; vy: number; radius: number; opacity: number; mass: number }
-export interface Pile { surface: Surface; bins: number[] }
+export interface Pile { surface: Surface; bins: number[]; exposed?: boolean[] }
+export interface SnowImprint {x:number;y:number;surfaceId:string;type:'footprint'|'push';at:number;radius:number}
+export interface SpellPulse {x:number;y:number;type:'gust'|'vortex'|'freeze'|'melt';at:number;radius:number}
 interface InternalPile { surface: Surface; bins: Float32Array; lastSeen: number }
 export const DEFAULT_SETTINGS: Settings = { snowfall: 0.67, wind: 0.2, gravity: 1, cohesion: 0.48, maxDepth: 34 };
 import { resolveTheme, type ParticleKind } from './themes.ts';
+import { normalizeTool, type InteractionTool } from './interactions.ts';
 const CELL = 7;
 const MAX_FLAKES = 1250;
 const MAX_CLUMPS = 220;
@@ -40,8 +43,14 @@ export class SnowEngine {
   private clumps: Particle[] = [];
   private piles = new Map<string, InternalPile>();
   private surfaces: Surface[] = [];
+  /** Sorted and merged top-edge occlusion intervals, recomputed only on geometry polls. */
+  private coveredBy = new Map<string, readonly {left:number;right:number}[]>();
   private spawnRemainder = 0;
   private time = 0;
+  private imprints:SnowImprint[]=[];
+  private pulses:SpellPulse[]=[];
+  private frozenUntil=0;
+  private footprintParity=0;
   private previousSurfaceUpdate = 0;
   private mouseX = -9999;
   private mouseY = -9999;
@@ -65,6 +74,9 @@ export class SnowEngine {
     this.themeDensity=t.intensity;
     this.flakes=[];
     this.clumps=[];
+    this.imprints=[];
+    this.pulses=[];
+    this.frozenUntil=0;
     for(const pile of this.piles.values()) pile.bins.fill(0);
   }
   setParticleLimit(count: number): void {
@@ -130,9 +142,26 @@ export class SnowEngine {
         // temporarily unobservable or maximized to the bezel. None of these
         // transitions creates physical falling snow on other applications.
         this.piles.delete(id);
+        this.imprints=this.imprints.filter(stamp=>stamp.surfaceId!==id);
       }
     }
     this.surfaces = ordered;
+    this.coveredBy.clear();
+    for(const surface of ordered) {
+      const intervals=ordered.filter(upper=>upper.z>surface.z &&
+        upper.y<=surface.y && upper.y+upper.height>surface.y &&
+        upper.x<surface.x+surface.width && upper.x+upper.width>surface.x)
+        .map(upper=>({left:Math.max(surface.x,upper.x),
+                     right:Math.min(surface.x+surface.width,upper.x+upper.width)}))
+        .sort((a,b)=>a.left-b.left);
+      const merged:{left:number;right:number}[]=[];
+      for(const interval of intervals){
+        const last=merged[merged.length-1];
+        if(last&&interval.left<=last.right)last.right=Math.max(last.right,interval.right);
+        else merged.push({...interval});
+      }
+      this.coveredBy.set(surface.id,merged);
+    }
     // Covered regions retain their previous snow without receiving new mass;
     // drawing masks them until exposed again. Occlusion itself cannot shed snow.
     this.previousSurfaceUpdate = atSeconds;
@@ -140,9 +169,18 @@ export class SnowEngine {
   /** Is this coordinate on the exposed top of this surface? */
   isExposed(surface: Surface, x: number): boolean {
     if (x < surface.x || x >= surface.x + surface.width) return false;
-    return !this.surfaces.some(other => other.z > surface.z &&
-      x >= other.x && x < other.x + other.width &&
-      other.y <= surface.y && other.y + other.height > surface.y);
+    const intervals=this.coveredBy.get(surface.id);
+    if(!intervals)return !this.surfaces.some(other => other.z>surface.z &&
+      x>=other.x&&x<other.x+other.width&&
+      other.y<=surface.y&&other.y+other.height>surface.y);
+    let lo=0,hi=intervals.length-1;
+    while(lo<=hi){
+      const mid=(lo+hi)>>1,span=intervals[mid];
+      if(x<span.left)hi=mid-1;
+      else if(x>=span.right)lo=mid+1;
+      else return false;
+    }
+    return true;
   }
   private flake(): Particle {
     const upward=this.particleMode==='embers'||this.particleMode==='fireflies';
@@ -175,6 +213,87 @@ export class SnowEngine {
     if (i > 0) addVisible(i - 1, mass * 0.13);
     if (i + 1 < radius) addVisible(i + 1, mass * 0.13);
     return true;
+  }
+  /**
+   * Footprint/push footprints displace real heightfield mass, respecting visible
+   * target bins and maximum depth. Melt is the only tool that destroys mass.
+   * Pointer gestures target exposed pile edges, never covered window interiors.
+   */
+  applyTool(raw:InteractionTool,x:number,y:number,atSeconds=this.time):boolean {
+    const tool=normalizeTool(raw);
+    if(tool==='none'||!finite(x)||!finite(y)||!finite(atSeconds))return false;
+    const snow=this.particleMode==='snow';
+    if(!snow && (tool==='footprint'||tool==='push'||tool==='freeze'||tool==='melt'))return false;
+    if(tool==='gust'||tool==='vortex') {
+      const range=tool==='gust'?155:190;
+      for(const p of [...this.flakes,...this.clumps]) {
+        const dx=p.x-x,dy=p.y-y,dist=Math.hypot(dx,dy);
+        if(dist>range)continue;
+        const attenuation=Math.max(0,1-dist/range);
+        if(tool==='gust') {
+          p.vx=clamp(p.vx+attenuation*160,-450,450);
+          p.vy=clamp(p.vy-attenuation*72,-320,440);
+        } else {
+          const d=Math.max(1,dist);
+          p.vx=clamp(p.vx-dy/d*attenuation*160,-450,450);
+          p.vy=clamp(p.vy+dx/d*attenuation*160,-320,440);
+        }
+      }
+      this.addPulse({x,y,type:tool,at:this.time,radius:range});
+      return true;
+    }
+    let changed=false;
+    for(const pile of this.piles.values()) {
+      const s=pile.surface;
+      if(y<s.y-Math.max(24,this.settings.maxDepth+10)||y>s.y+20 ||
+         x<s.x-20||x>s.x+s.width+20)continue;
+      const center=clamp(Math.floor((x-s.x)/CELL),0,pile.bins.length-1);
+      const range=tool==='freeze'?11:tool==='melt'?7:3;
+      for(let i=Math.max(0,center-range);i<=Math.min(pile.bins.length-1,center+range);i++) {
+        const binX=s.x+(i+.5)*CELL;
+        if(!this.isExposed(s,binX))continue;
+        const old=pile.bins[i];
+        if(old<=.08)continue;
+        if(tool==='melt') {
+          const weight=1-Math.abs(center-i)/(range+1);
+          pile.bins[i]=Math.max(0,old-weight*2.8);
+          changed=true;
+        } else if(tool==='footprint'||tool==='push') {
+          const fromCenter=Math.abs(i-center);
+          if(fromCenter>1 && tool==='footprint')continue;
+          const fraction=tool==='footprint'?.72:.44;
+          let remaining=old*fraction;
+          const targets=tool==='footprint'
+            ? [i-3,i+3,i-4,i+4]
+            : [i+3,i+4,i+2];
+          for(const target of targets) {
+            if(target<0||target>=pile.bins.length)continue;
+            const tx=s.x+Math.min(s.width-.5,(target+.5)*CELL);
+            if(!this.isExposed(s,tx))continue;
+            const capacity=Math.max(0,this.settings.maxDepth-pile.bins[target]);
+            const moved=Math.min(remaining,capacity);
+            pile.bins[target]+=moved;
+            pile.bins[i]-=moved;
+            remaining-=moved;
+            if(remaining<=.0001)break;
+          }
+          if(remaining<old*fraction-.02)changed=true;
+        } else if(tool==='freeze')changed=true;
+      }
+      if(changed && (tool==='footprint'||tool==='push')) {
+        if(this.imprints.length>=160)this.imprints.shift();
+        const side=tool==='footprint'?(this.footprintParity++%2===0?-1:1):0;
+        this.imprints.push({x:x+side*5,y:s.y-4,surfaceId:s.id,
+          type:tool,at:this.time,radius:tool==='footprint'?9:13});
+      }
+    }
+    if(changed && tool==='freeze')this.frozenUntil=Math.max(this.frozenUntil,this.time+3);
+    if(changed && (tool==='melt'||tool==='freeze'))this.addPulse({x,y,type:tool,at:this.time,radius:tool==='melt'?75:120});
+    return changed;
+  }
+  private addPulse(pulse:SpellPulse):void {
+    if(this.pulses.length>=40)this.pulses.shift();
+    this.pulses.push(pulse);
   }
   private releaseBin(pile: InternalPile, i: number, fraction: number, velocity: number): void {
     const amount = pile.bins[i] * fraction;
@@ -305,6 +424,8 @@ export class SnowEngine {
     if (!finite(dtSeconds) || dtSeconds <= 0) return;
     const dt = Math.min(1 / 30, dtSeconds);
     this.time += dt;
+    if(this.imprints.length)this.imprints=this.imprints.filter(v=>this.time-v.at<48 && this.piles.has(v.surfaceId));
+    if(this.pulses.length)this.pulses=this.pulses.filter(v=>this.time-v.at<1.25);
     const windSpan = Math.abs(this.settings.wind) * Math.max(120, this.height * 0.75);
     const rate = this.settings.snowfall * (16 + (this.width + windSpan) / 4.5)
       * (this.particleMode==='snow'?1:this.themeDensity);
@@ -316,11 +437,18 @@ export class SnowEngine {
     this.updateParticles(this.flakes, dt, false);
     this.updateParticles(this.clumps, dt, true);
     this.applyContinuousMouse(dt);
-    if(this.particleMode==='snow') this.settle(dt);
+    if(this.particleMode==='snow' && this.time>=this.frozenUntil)this.settle(dt);
   }
-  snapshot(): { flakes: readonly Particle[]; clumps: readonly Particle[]; piles: Pile[]; surfaces: readonly Surface[] } {
+  snapshot(): { flakes: readonly Particle[]; clumps: readonly Particle[]; piles: Pile[];
+    surfaces: readonly Surface[]; imprints: readonly SnowImprint[]; pulses: readonly SpellPulse[];
+    frozenUntil:number; time:number } {
     return { flakes: this.flakes, clumps: this.clumps, surfaces: this.surfaces,
-      piles: Array.from(this.piles.values(), p => ({ surface: p.surface, bins: Array.from(p.bins) })) };
+      imprints:this.imprints,pulses:this.pulses,frozenUntil:this.frozenUntil,time:this.time,
+      piles: Array.from(this.piles.values(), p => ({
+        surface:p.surface,bins:Array.from(p.bins),
+        exposed:Array.from(p.bins,(_,i)=>this.isExposed(p.surface,
+          p.surface.x+Math.min(p.surface.width-.5,(i+.5)*CELL))),
+      })) };
   }
   /** Persistent aerodynamic deflector and physical obstacle applied every frame (moving or stationary) */
   private applyContinuousMouse(dt: number): void {
@@ -512,9 +640,13 @@ export class SnowEngine {
     }
   }
   clear(): void {
+    this.imprints=[];
+    this.pulses=[];
+    this.frozenUntil=0;
     this.flakes = [];
     this.clumps = [];
     this.piles.clear();
+    this.coveredBy.clear();
     this.surfaces = [];
     this.spawnRemainder = 0;
     this.prevMouseX = -9999;

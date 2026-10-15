@@ -2,6 +2,19 @@
 
 ## New verified checks (2026-10-15)
 
+### Latest integration gate — reactive snow, shared-world performance
+
+- **59/59** Node/TypeScript regression tests PASS; `npm run build:web` PASS; `git diff --check` PASS.
+- `cargo check --release --offline --locked` PASS after the extended native settings schema.
+- Windows standalone **Tauri CLI production** build PASS, `S:\snowy_display\.build\target\release\snowy-display.exe`, 9,338,368 bytes, SHA-256 `8d045768f541f93821bab2c08ce6c87c691a38047cdf28e5f3d4e750a7f68c71`.
+- Native triple-start test PASS: one retained Snowy Display PID **29564**; two subsequent launches exited 0 without additional processes.
+- Real Windows UI window enumeration: two visible independent monitor overlays at **[0,0,2560,1080]** and **[2560,0,4096,864]**, one controls window and no duplicate app process. This does **not** prove per-frame pixel continuity or Snow-Bleed visually.
+- Added interactive tool modes `none`, `footprint`, `push`, `gust`, `vortex`, `freeze`, `melt`; cursor gestures affect underlying snow/particles while overlays remain click-through. Footprints and snowplow displace mass into visible heightfield bins; melt intentionally removes snow, and frost temporarily holds settling.
+- Performance caching: sorted/merged per-surface occlusion intervals computed on window geometry refresh, precomputed per-bin exposure masks on published shared scenes, plus bounded FPS/particle/synchronization/poll budgets. Exact pixel occlusion parity tested against a reference implementation.
+- Simulation-only CPU benchmark with 42 simulated windows and 240 samples each: Eco **1.288 ms average / 3.604 ms p95**, Balanced **1.452 ms average / 2.600 ms p95**, High **2.250 ms average / 4.207 ms p95**. These are Node.js physics timings, NOT whole-app/WebView2/GPU or actual FPS measurements; machine workload may vary.
+- Old status details below are historical checkpoints, not the current test tally.
+- **Shipping remains blocked** pending user's real Windows visual acceptance of multi-monitor seam, occlusion, footprints and spells; real macOS/Linux/Android testing; security, signing and packaging release gates. `main` must not merge without explicit signoff under `AGENTS.md`.
+
 ### Cross-display and theme content alpha
 
 - Source includes one global physical virtual desktop for all monitors; one coordinator runs snow physics and broadcasts frames, with per-display viewport/DPI transforms, instead of full independent world simulation on each screen.

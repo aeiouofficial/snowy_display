@@ -25,6 +25,12 @@ Choose among **21 procedurally rendered themes** in Winter, Spring, Summer, Autu
 
 See [`docs/CONTENT_PLATFORM.md`](docs/CONTENT_PLATFORM.md) for the architecture, measured vs. unverified claims and the roadmap for professional content packs, API integrations, diagnostics and installers.
 
+## Reactive snow interactions
+
+The **Reactive snow & spells** panel provides seven selectable pointer modes: Observe, Footsteps, Snowplow, Wind spell, Vortex spell, Frost spell and Melt spell. Footsteps stamp temporary paired-looking depressions and displace snow toward adjacent exposed bins. Snowplow redistributes snow mass sideways without creating it; wind and vortex alter particle velocity. Frost temporarily suspends settling, while Melt intentionally removes snow mass without creating ghost flakes. Modes apply while moving the pointer across the preview or desktop snow. Desktop overlays remain click-through; no background mouse clicks are intercepted. A selected mode is saved with the current settings and may be returned to Observe to disable active interactions.
+
+Performance safeguards include 24/36/60 FPS tiers, bounded particles and spell visuals, a shared multi-monitor simulation and cached Z-order occlusion intervals. These are software limits, **not** independently measured GPU or battery benchmarks.
+
 ## Develop
 
 **Windows workspace requirement (this project instance):** work only inside `S:\snowy_display`. Before running npm, Cargo or Python on Windows, call `scripts/project-env.cmd` from a background/hidden process. It routes temporary files, build artifacts, home directories and caches to `S:`, while accessing existing Rust compiler executables on `C:` read-only. On exFAT, run `python scripts/exfat_cargo_cache.py` before the first native Cargo build. See `docs/STATUS.md`.

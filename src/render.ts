@@ -33,8 +33,13 @@ export function drawScene(ctx:CanvasRenderingContext2D, scene:SnowScene, width:n
         ctx.rect(other.x,other.y,other.width,other.height);
         ctx.clip('evenodd');
       }
-      const exposed=(x:number) => !scene.surfaces.some(other=>other.id!==s.id && other.z>s.z &&
-        x>=other.x && x<other.x+other.width && other.y<=s.y && other.y+other.height>s.y);
+      const exposed=(x:number) => {
+        const i=Math.floor((x-s.x)/7);
+        return pile.exposed&&i>=0&&i<pile.exposed.length?
+          pile.exposed[i] :
+          !scene.surfaces.some(other=>other.id!==s.id && other.z>s.z &&
+            x>=other.x && x<other.x+other.width && other.y<=s.y && other.y+other.height>s.y);
+      };
       for(let i=0;i<bins.length;) {
         while(i<bins.length && (!exposed(s.x+(i+.5)*7)||bins[i]<.09))i++;
         if(i>=bins.length)break;
@@ -42,8 +47,45 @@ export function drawScene(ctx:CanvasRenderingContext2D, scene:SnowScene, width:n
         while(i<bins.length&&exposed(s.x+(i+.5)*7)&&bins[i]>=.09)i++;
         snowSection(ctx,s,bins,start,i,theme);
       }
+      // Impressions are associated with their OWN snow-bearing surface.
+      // Existing per-pile clipping excludes any newly covering foreground.
+      for(const stamp of scene.imprints) {
+        if(stamp.surfaceId!==s.id||!exposed(stamp.x))continue;
+        const age=Math.max(0,scene.time-stamp.at);
+        const x=stamp.x, y=s.y-2;
+        ctx.save();
+        ctx.globalAlpha=Math.max(0,1-age/48);
+        ctx.fillStyle=stamp.type==='footprint'?'rgba(66,111,145,.25)':'rgba(66,111,145,.19)';
+        ctx.strokeStyle='rgba(225,241,255,.28)';
+        const radius=stamp.radius;
+        ctx.beginPath();
+        ctx.ellipse(x,y-2,radius*.75,Math.max(2,radius*.26),0,0,Math.PI*2);
+        ctx.fill();ctx.stroke();
+        if(stamp.type==='footprint'){
+          ctx.beginPath();ctx.ellipse(x+4,y+1,radius*.55,Math.max(1.4,radius*.22),-.25,0,Math.PI*2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
       ctx.restore();
     }
+  }
+  // Localized magic effect rings fade out deterministically and are transmitted
+  // in the shared scene packet, so multi-monitor transitions stay continuous.
+  for(const pulse of scene.pulses) {
+    if(!visible(pulse.x,pulse.y,pulse.radius))continue;
+    const progress=Math.min(1,Math.max(0,(scene.time-pulse.at)/1.25));
+    ctx.save();
+    ctx.globalAlpha=Math.max(0,1-progress);
+    const tint=pulse.type==='melt'?'rgba(255,183,93,.48)':
+      pulse.type==='freeze'?'rgba(153,233,255,.48)':
+      pulse.type==='vortex'?'rgba(200,164,255,.38)':'rgba(210,235,255,.38)';
+    ctx.strokeStyle=tint;
+    ctx.lineWidth=pulse.type==='freeze'?2:1.5;
+    ctx.beginPath();
+    ctx.arc(pulse.x,pulse.y,pulse.radius*(.15+.85*progress),0,Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 function drawEffect(ctx:CanvasRenderingContext2D,p:Particle,t:WeatherTheme):void {

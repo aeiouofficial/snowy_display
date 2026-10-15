@@ -17,7 +17,10 @@ pub struct AppSettings {
     pub automatic_theme: bool,
     #[serde(default = "default_performance_mode")]
     pub performance_mode: String,
+    #[serde(default = "default_interaction_mode")]
+    pub interaction_mode: String,
 }
+fn default_interaction_mode() -> String { "none".into() }
 fn default_theme_id() -> String { "winter-snow".into() }
 fn default_performance_mode() -> String { "balanced".into() }
 
@@ -33,6 +36,7 @@ impl Default for AppSettings {
             theme_id: default_theme_id(),
             automatic_theme: false,
             performance_mode: default_performance_mode(),
+            interaction_mode: default_interaction_mode(),
         }
     }
 }

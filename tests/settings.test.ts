@@ -16,7 +16,8 @@ test('loading native settings returns them without writing browser storage prema
   });
   try {
     const native: AppSettings = { snowfall: 0.87, wind: -0.33, gravity: 1.4, cohesion: .6, maxDepth: 45, enabled: true,
-      themeId: 'winter-snow', automaticTheme: false, performanceMode: 'balanced' };
+      themeId: 'winter-snow', automaticTheme: false, performanceMode: 'balanced',
+      interactionMode: 'none' };
     const loaded = await (fetchSettings as (read: () => Promise<AppSettings>) => Promise<AppSettings>)(async () => native);
     assert.deepEqual(loaded, native, 'native settings must have priority over stale browser storage');
     assert.deepEqual(writes, [], 'fetch must not mutate local storage before startup hydration guard accepts values');

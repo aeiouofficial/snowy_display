@@ -4,6 +4,7 @@ import { loadSettings, saveSettings, fetchSettings, broadcastSettings, broadcast
 import { THEMES } from './themes.ts';
 import { PERFORMANCE, resolvePerformance } from './desktop-world.ts';
 import { activeTheme, DEFAULT_APP_SETTINGS } from './settings.ts';
+import { INTERACTION_TOOLS, normalizeTool } from './interactions.ts';
 import './style.css';
 
 const target = document.querySelector<HTMLDivElement>('#app');
@@ -33,6 +34,13 @@ target.innerHTML = `
       </label>
       <p class="content-note">Only snow themes accumulate. Other effects stay airborne and never build up on windows.</p>
     </section>
+    <section class="interaction-controls" aria-label="Reactive snow tools and spells">
+      <div class="section-title"><h2>Reactive snow &amp; spells</h2>
+        <span class="content-count">Live interactions</span></div>
+      <div id="interaction-tools" class="interaction-grid" role="group" aria-label="Choose snow interaction"></div>
+      <div id="interaction-description" class="interaction-description" aria-live="polite"></div>
+      <p class="content-note">Move the cursor through actual snow, or use the draggable preview. Snow tools need an exposed snow-covered edge. Effects are click-through on your desktop.</p>
+    </section>
     <section class="controls" aria-label="Snow physics settings">
       <div class="section-title"><h2>Snow simulation</h2><button class="toggle" id="enabled" role="switch" aria-checked="true" aria-label="Toggle snowfall"><span></span></button></div>
       <div class="preset-bar" id="presets"></div>
@@ -54,6 +62,22 @@ for(const category of ['Winter','Spring','Summer','Autumn','Events','Atmosphere'
     group.appendChild(option);
   }
   themeSelect.appendChild(group);
+}
+const interactionButtons=document.querySelector<HTMLElement>('#interaction-tools')!;
+const interactionDescription=document.querySelector<HTMLElement>('#interaction-description')!;
+for (const tool of INTERACTION_TOOLS) {
+  const button=document.createElement('button');
+  button.type='button';button.className='interaction-button';
+  button.dataset.tool=tool.id;
+  const glyph=document.createElement('span');glyph.className='interaction-icon';
+  glyph.setAttribute('aria-hidden','true');glyph.textContent=tool.icon;
+  const caption=document.createElement('span');caption.textContent=tool.label;
+  button.append(glyph,caption);
+  button.title=tool.details;
+  button.addEventListener('click',()=> {
+    config={...config,interactionMode:tool.id};update();
+  });
+  interactionButtons.appendChild(button);
 }
 const scene = document.querySelector<HTMLElement>('#scene')!;
 const canvas = document.querySelector<HTMLCanvasElement>('#preview')!;
@@ -111,6 +135,13 @@ function update(persist = true): void {
   themeDescription.textContent=theme.description;
   scene.dataset.theme=theme.category.toLowerCase();
   document.documentElement.style.setProperty('--accent-cyan',theme.accent);
+  const mode=normalizeTool(config.interactionMode);
+  for(const button of interactionButtons.querySelectorAll<HTMLButtonElement>('button')) {
+    const active=button.dataset.tool===mode;
+    button.classList.toggle('active',active);
+    button.setAttribute('aria-pressed',String(active));
+  }
+  interactionDescription.textContent=INTERACTION_TOOLS.find(t=>t.id===mode)?.details??'';
   toggle.setAttribute('aria-checked', String(config.enabled));
   for (const spec of specs) {
     const field = document.querySelector<HTMLInputElement>(`#${spec.key}`)!;
@@ -200,11 +231,34 @@ for (const el of scene.querySelectorAll<HTMLElement>('[data-window]')) {
   el.addEventListener('pointercancel', () => { drag = null; });
 }
 
+let lastToolAt=0;
+let lastToolX=-10000;
+let lastToolY=-10000;
+scene.addEventListener('pointerdown',event=>{
+  if(event.button!==0||!config.enabled)return;
+  const mode=normalizeTool(config.interactionMode);
+  if(mode==='none')return;
+  const b=scene.getBoundingClientRect();
+  const x=event.clientX-b.x,y=event.clientY-b.y;
+  if(engine.applyTool(mode,x,y,performance.now()/1000)) {
+    lastToolAt=performance.now();
+    lastToolX=x;lastToolY=y;
+  }
+});
 scene.addEventListener('pointermove', event => {
   const b = scene.getBoundingClientRect();
   const x = event.clientX - b.x;
   const y = event.clientY - b.y;
   engine.interactMouse(x, y, performance.now() / 1000);
+  const mode=normalizeTool(config.interactionMode);
+  const tool=INTERACTION_TOOLS.find(t=>t.id===mode)!;
+  const now=performance.now();
+  if(config.enabled&&mode!=='none'&&
+    now-lastToolAt>=tool.intervalMs&&Math.hypot(x-lastToolX,y-lastToolY)>12) {
+    if(engine.applyTool(mode,x,y,now/1000)) {
+      lastToolAt=now;lastToolX=x;lastToolY=y;
+    }
+  }
 });
 
 scene.addEventListener('pointerleave', () => {

@@ -11,6 +11,11 @@ seasonal artwork or unnecessary image downloads are bundled.
 
 ### Shipped in this development iteration (source implementation)
 
+- Reactive snow tools: pointer footprints, sidewise snowplow, gust, vortex, three-second frost and melt. Each mode is independently selected and persisted; no global mouse hook intercepts clicks. Footprints and pushing displace heightfield mass rather than creating snow, while melting intentionally destroys material. Surface geometry and z-order are respected; non-snow themes never create snow piles.
+- Footprint indentation stamps and bounded transient magic pulse render overlays, carried within the shared world snapshots for all monitors. Upper-window clips still apply to the original snow pile and impressions.
+- Cached per-surface merged X-interval occlusion masks, rather than O(number of windows) visibility testing on each bin every frame. Per-bin exposure masks are included in scene snapshots so follower views can render covered sections without repeated window scans.
+
+
 - Shared physical-pixel virtual desktop, including negative screen origins,
   vertically offset monitors and mixed DPI; all screens render cropped views
   from one world rather than instantiating independent physics simulations.

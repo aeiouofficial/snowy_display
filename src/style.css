@@ -463,3 +463,19 @@ padding:12px 0;border-top:1px solid var(--border-subtle);font-size:12px}
 .scene[data-theme="atmosphere"]{background:radial-gradient(circle at 60% 30%,#242c50,#10152d 70%,#0a1022)}
 @media(max-width:480px){.environment-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.live-dot{animation:none}}
+
+/* Snow tools use inline, nonmodal controls and respect keyboard focus. */
+.interaction-controls{border:1px solid var(--border-subtle);background:rgba(12,22,38,.75);
+ border-radius:14px;padding:16px;margin-bottom:19px}
+.interaction-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(98px,1fr));gap:8px}
+.interaction-button{display:flex;align-items:center;justify-content:flex-start;gap:8px;
+ padding:10px 8px;min-height:42px;border-radius:9px;font-size:11px;font-weight:600;
+ color:#c3d3e7;background:rgba(24,38,59,.9);border:1px solid rgba(124,155,193,.28);
+ transition:background .13s,border-color .13s;color:inherit}
+.interaction-button:hover{background:rgba(45,69,102,.9);border-color:var(--border-highlight)}
+.interaction-button.active{color:var(--accent-cyan);background:rgba(56,189,248,.12);
+ border-color:var(--accent-cyan)}
+.interaction-button:focus-visible{outline:2px solid var(--accent-cyan);outline-offset:3px}
+.interaction-icon{font-size:17px;line-height:1}
+.interaction-description{min-height:18px;color:#c5d9ed;font-size:12px;margin:11px 0}
+@media(max-width:400px){.interaction-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

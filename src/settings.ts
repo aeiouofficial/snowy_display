@@ -1,16 +1,17 @@
 import { DEFAULT_SETTINGS, type Settings } from './physics.ts';
 import { DEFAULT_THEME, resolveTheme, calendarTheme } from './themes.ts';
 import { resolvePerformance, type PerformanceMode } from './desktop-world.ts';
+import { normalizeTool, type InteractionTool } from './interactions.ts';
 export const SETTINGS_KEY = 'snowy-display/settings-v1';
 export const SETTINGS_EVENT = 'snowy-display:settings';
 export const CLEAR_EVENT = 'snowy-display:clear-snow';
-export type AppSettings = Settings & { enabled: boolean; themeId: string; automaticTheme: boolean; performanceMode: PerformanceMode };
+export type AppSettings = Settings & { enabled: boolean; themeId: string; automaticTheme: boolean; performanceMode: PerformanceMode; interactionMode: InteractionTool };
 export function activeTheme(settings: Pick<AppSettings,'themeId'|'automaticTheme'>, now=new Date()) {
   return resolveTheme(settings.automaticTheme ? calendarTheme(now) : settings.themeId);
 }
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   ...DEFAULT_SETTINGS, enabled: true, themeId: DEFAULT_THEME,
-  automaticTheme: false, performanceMode: 'balanced',
+  automaticTheme: false, performanceMode: 'balanced', interactionMode: 'none',
 };
 export function loadSettings(): AppSettings {
   try {
@@ -27,6 +28,7 @@ export function loadSettings(): AppSettings {
     current.themeId = resolveTheme(obj.themeId).id;
     if (typeof obj.automaticTheme === 'boolean') current.automaticTheme = obj.automaticTheme;
     current.performanceMode = resolvePerformance(obj.performanceMode);
+    current.interactionMode = normalizeTool(obj.interactionMode);
     return current;
   } catch { return { ...DEFAULT_APP_SETTINGS }; }
 }
@@ -49,6 +51,7 @@ export async function fetchSettings(
         ...DEFAULT_APP_SETTINGS, ...fromBackend,
         themeId: resolveTheme(fromBackend.themeId).id,
         performanceMode: resolvePerformance(fromBackend.performanceMode),
+        interactionMode: normalizeTool(fromBackend.interactionMode),
         automaticTheme: fromBackend.automaticTheme === true,
       };
     }

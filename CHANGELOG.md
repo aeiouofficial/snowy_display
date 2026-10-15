@@ -7,7 +7,11 @@ No version has been tagged yet; everything below is unreleased alpha work on
 
 ## [Unreleased]
 
-### Added (2026-10-15 · cross-monitor and content-platform alpha)
+### Added (2026-10-15 · reactive interactions, shared displays and content-platform alpha)
+- Added seven cursor modes: Observe, Footsteps, Snowplow, Wind, Vortex, Frost and Melt. Interactive footprints imprint and displace nearby snow, push transfers finite mass to visible neighbors, spells modify airborne velocities or temporarily freeze/melt accumulated mass. The main UI exposes each as an accessible inline control and stores the selected mode in desktop settings.
+- Added visible footprint impressions and bounded spell effect rings, synchronized inside the shared render scene. Multiple new deterministic physics tests cover mass conservation, covered windows, particle motion and effect limits.
+- Accelerated snow-edge exposure queries with merged occlusion intervals computed on window-geometry updates, plus precomputed per-bin exposure transmitted to follower renderers. Numerical regression tests compare exact edge exposure against a reference implementation.
+
 - **Unified multi-monitor world**: native physical-pixel monitor topology (negative coordinates and mixed DPI), monitor hotplug/resizing reconciliation, coordinator + broadcast of a shared snow simulation to per-monitor canvas views; follower fallback if synchronization is unavailable.
 - **Performance tiers**: Eco, Balanced and High cap frame rate, particle budgets, synchronization frequency and window geometry polls, avoiding redundant per-monitor physics work.
 - **Twenty-one seasonal/weather/event environments** spanning snow, rain, cherry blossoms, pollen, leaves, fireflies, starry nights, Halloween bats/embers, Advent weeks one through four, Christmas, New Year and cosmic moods. Non-snow effects do not accumulate as snow.
