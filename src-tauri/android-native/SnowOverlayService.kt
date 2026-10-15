@@ -43,6 +43,12 @@ class SnowOverlayService : Service() {
    overlay?.clearSnow()
    return START_NOT_STICKY
   }
+  // Updating a running canvas must NOT rebuild the foreground notification,
+  // allocate a new layout, or call startForeground on every slider drag.
+  if(intent?.action==UPDATE && overlay!=null){
+   overlay?.configure(intent)
+   return START_NOT_STICKY
+  }
   val channel="snowy-overlay"
   if(Build.VERSION.SDK_INT>=26){
    val c=NotificationChannel(channel,"Snowy Display overlay",NotificationManager.IMPORTANCE_LOW)
@@ -195,8 +201,8 @@ private class WeatherCanvas(service:Service):View(service) {
   }
  }
  private fun motifs():List<String> = when(theme) {
-  "winter-snow"->listOf("pine","crystal")
-  "winter-blizzard"->listOf("pine","cloud","crystal")
+  "winter-snow"->listOf("crystal")
+  "winter-blizzard"->listOf("crystal")
   "winter-frost"->listOf("icicle","crystal")
   "winter-northernlights"->listOf("aurora","pine","moon")
   "winter-forest"->listOf("pine","bird","pine")
@@ -216,7 +222,7 @@ private class WeatherCanvas(service:Service):View(service) {
   "autumn-mist"->listOf("mist","branch","acorn")
   "autumn-harvest"->listOf("pumpkin","acorn","lantern")
   "autumn-migration"->listOf("bird","branch","bird")
-  "weather-thunder"->listOf("cloud","lightning","cloud")
+  "weather-thunder"->listOf("lightning","cloud")
   "weather-fog"->listOf("mist","mist","cloud")
   "weather-drizzle"->listOf("cloud","flower","cloud")
   "weather-windy"->listOf("kite","leaf","branch")
@@ -383,10 +389,14 @@ private class WeatherCanvas(service:Service):View(service) {
  }
  private fun drawDecorations(c:Canvas,w:Float,h:Float){
   if(!scenery||density<=0f)return
-  val features=motifs()
+  // Fullscreen overlays are transparent weather, NOT a seasonal wallpaper.
+  // Trees, houses, flowers, pumpkins and other scenery only belong to the
+  // in-app preview. Render at most two lightweight atmospheric accents here.
+  val features=motifs().filter{it in setOf(
+   "aurora","lightning","rainbow","firework","meteor","butterfly",
+   "bee","bird","kite","bat","firefly","moon","sun","cloud","lights","mist")}
   if(features.isEmpty())return
-  val count=(3+width/330).coerceIn(3,9)
-  val maxDraw=(count*density).toInt().coerceAtLeast(if(density>.05f)1 else 0)
+  val maxDraw=(2*density).toInt().coerceIn(0,2)
   val t=if(animations&&!reducedMotion)elapsed else 0f
   for(i in 0 until maxDraw){
    val k=features[i%features.size]
@@ -402,11 +412,14 @@ private class WeatherCanvas(service:Service):View(service) {
   }
  }
  private fun drawParticles(c:Canvas,w:Float,h:Float,dt:Float){
-  val limit=when(quality){"eco"->48;"high"->150;else->90}
+  // Mobile compositor budget: no 150-particle + 60 FPS full-screen path.
+  val limit=when(quality){"eco"->22;"high"->72;else->40}
   val desired=(limit*intensity*snowRate).toInt().coerceIn(0,limit)
   while(particles.size>desired)particles.removeAt(particles.lastIndex)
   while(particles.size<desired)particles.add(Particle(
-   rng.nextFloat()*w,-rng.nextFloat()*h,1f+rng.nextFloat()*3f,
+   rng.nextFloat()*w,
+   if(mode=="embers")h+rng.nextFloat()*9f else rng.nextFloat()*h,
+   1f+rng.nextFloat()*3f,
    35f+rng.nextFloat()*82f,rng.nextFloat()*6.28f,rng.nextInt(4)))
   for(p in particles){
    if(enabled&&!reducedMotion) {
@@ -497,6 +510,8 @@ private class WeatherCanvas(service:Service):View(service) {
    drawParticles(c,w,h,dt)
    settleSnow(c,w,h,dt)
   }
-  postInvalidateDelayed(1000L/when(quality){"eco"->24;"high"->60;else->36})
+  // Rendering is on Android's main thread. Cap redraws to preserve input
+  // latency and battery life; no loop at all when effects are disabled.
+  if(enabled)postInvalidateDelayed(1000L/when(quality){"eco"->12;"high"->30;else->20})
  }
 }

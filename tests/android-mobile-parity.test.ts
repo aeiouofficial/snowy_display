@@ -7,21 +7,20 @@ const app=path('src/app.ts'),ui=path('src/studio-ui.ts'),css=path('src/style.css
 const kotlin=path('src-tauri/android-native/SnowOverlayService.kt');
 const plugin=path('src-tauri/android-native/SnowOverlayPlugin.kt');
 const rust=path('src-tauri/src/lib.rs');
-test('Android bottom navigation follows panels; no panel or whole page owns header and tabs',()=>{
+test('Android navigation and preview are siblings of scroll-only panels',()=>{
  assert.match(app,/shell\.insertBefore\(tabs,shell\.querySelector\('footer'\)\)/);
- assert.ok(app.includes('scenesPanel.prepend(visual)'),'preview must scroll within Scenes, never occupy other tabs');
- assert.ok(app.includes("aria-expanded"));
- assert.ok(app.includes('preview-collapsed'));
- assert.ok(css.includes('.android-ui .studio-tabs{order:3}'));
- assert.ok(css.includes('.android-ui .studio-panel{order:2}'));
- assert.match(css,/\.android-ui \.studio-panel\{[\s\S]*?overflow-y:auto;overflow-x:hidden/);
- assert.match(css,/\.android-ui \.app-shell\{[\s\S]*?height:100dvh/);
- assert.match(css,/\.android-ui \.header\{[\s\S]*?padding-top:max\(10px,env\(safe-area-inset-top/);
+ assert.match(app,/shell\.insertBefore\(visual,scenesPanel\)/);
+ assert.doesNotMatch(app,/scenesPanel\.prepend\(visual\)/);
+ assert.match(css,/grid-template-rows:auto auto minmax\(0,1fr\) auto/);
+ for(const [part,row] of [['header',1],['visual',2],['studio-panel',3],['studio-tabs',4]] as const)
+  assert.match(css,new RegExp('html\\.android-ui \\.'+part+'\\{[\\s\\S]*?grid-row:'+row));
+ assert.match(css,/overflow-y:auto/);
+ assert.match(css,/safe-area-inset-top/);
 });
 test('Android navigation uses crisp equivalent SVG icons and never Unicode fallbacks',()=>{
  assert.match(ui,/createElementNS\('http:\/\/www\.w3\.org\/2000\/svg','svg'\)/);
  for(const name of ['scenes','physics','activity','system'])assert.match(ui,new RegExp(name+":'M"));
- assert.match(css,/\.android-ui \.tab-symbol svg\{display:block;width:21px;height:21px\}/);
+ assert.match(css,/html\.android-ui \.tab-symbol svg\{display:block;width:21px;height:21px/);
 });
 test('all 38 themes select native overlay particle type directly, no heuristic "contains spring/summer" fallback',()=>{
  assert.equal(THEMES.length,38);

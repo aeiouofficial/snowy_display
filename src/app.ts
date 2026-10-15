@@ -206,6 +206,7 @@ async function refreshOverlayStatus():Promise<void>{
 // a newly selected theme or settings value in the Android service.
 let nativeUpdateRevision=0;
 let nativeUpdateInFlight=false;
+let nativeUpdateTimer:ReturnType<typeof setTimeout>|null=null;
 async function flushNativeOverlayUpdates():Promise<void>{
  if(nativeUpdateInFlight||!isAndroid||!overlayRunning)return;
  nativeUpdateInFlight=true;
@@ -228,7 +229,13 @@ async function flushNativeOverlayUpdates():Promise<void>{
 function scheduleOverlayUpdate():void{
  if(!isAndroid||!overlayRunning)return;
  nativeUpdateRevision++;
- void flushNativeOverlayUpdates();
+ // Changes made during a slider drag should coalesce into one native IPC
+ // update, not dozens of Android service restarts/notifications per second.
+ if(nativeUpdateTimer!==null)clearTimeout(nativeUpdateTimer);
+ nativeUpdateTimer=setTimeout(()=>{
+  nativeUpdateTimer=null;
+  void flushNativeOverlayUpdates();
+ },180);
 }
 async function startAndroidOverlay():Promise<void>{
  if(overlayActionBusy)return;
@@ -285,7 +292,9 @@ if(isAndroid){
  const shell = document.querySelector<HTMLElement>('.app-shell')!;
  shell.insertBefore(tabs,shell.querySelector('footer'));
  const visual=shell.querySelector<HTMLElement>('.visual')!;
- scenesPanel.prepend(visual);
+ // Preview is a sibling of the scrolling panels, so it remains visible
+ // while Physics, Activity, System and Scenes scroll independently.
+ shell.insertBefore(visual,scenesPanel);
  const previewButton=document.createElement('button');
  previewButton.id='mobile-preview-toggle';
  previewButton.type='button';
@@ -364,17 +373,24 @@ for (const item of specs) {
   const row = document.createElement('label'); row.className = 'control-row';
   row.innerHTML = `<span class="control-title">${item.label}</span><output for="${item.key}"></output><input type="range" id="${item.key}" min="${item.min}" max="${item.max}" step="${item.step}" />`;
   sliders.appendChild(row);
-  row.querySelector<HTMLInputElement>('input')!.addEventListener('input', event => {
+  const input=row.querySelector<HTMLInputElement>('input')!;
+  input.addEventListener('input', event => {
     config = { ...config, [item.key]: Number((event.target as HTMLInputElement).value) };
-    update();
+    // Render current value without writing native storage on every pointer move.
+    editRevision++;
+    update(false);
   });
+  input.addEventListener('change',()=>update());
 }
 const toggle = document.querySelector<HTMLButtonElement>('#enabled')!;
 function update(persist = true): void {
   engine.configure(config);
   const theme=activeTheme(config);
   engine.setTheme(theme.id);
-  engine.setParticleLimit(PERFORMANCE[resolvePerformance(config.performanceMode)].particles);
+  const selectedBudget=PERFORMANCE[resolvePerformance(config.performanceMode)].particles;
+  // The WebView preview runs alongside the native full-screen Android overlay.
+  // Never render hundreds of duplicate desktop flakes on a small phone preview.
+  engine.setParticleLimit(isAndroid?Math.min(64,selectedBudget):selectedBudget);
   engine.configureActors({autoPlows:config.autoPlows,plowInterval:config.plowInterval});
   themeSelect.value=theme.id;
   themeSelect.disabled=config.automaticTheme;
@@ -451,14 +467,22 @@ function sizePreview(): void {
 new ResizeObserver(sizePreview).observe(scene);
 let last = performance.now();
 let lastVisual=0;
+let lastSurfaceSync=0;
 let lastCalendarDay=new Date().getDate();
 function animate(now: number): void {
   requestAnimationFrame(animate);
   // Keep collapsed previews CPU-idle while leaving the native weather active.
-  if(isAndroid && scene.closest('.visual')?.classList.contains('preview-collapsed')){
+  if(isAndroid && (document.hidden ||
+      scene.closest('.visual')?.classList.contains('preview-collapsed'))){
     last=now;return;
   }
-  const interval=1000/PERFORMANCE[resolvePerformance(config.performanceMode)].fps;
+  // Avoid running two full-speed rendering loops on battery-powered Android:
+  // WebView is only a miniature preview; system-wide effects are drawn natively.
+  const requestedFPS=PERFORMANCE[resolvePerformance(config.performanceMode)].fps;
+  const previewFPS=isAndroid
+    ?(config.reduceMotion?6:overlayRunning?10:Math.min(18,requestedFPS))
+    :requestedFPS;
+  const interval=1000/previewFPS;
   if(now-lastVisual<interval)return;
   lastVisual=now;
   if(config.automaticTheme) {
@@ -466,7 +490,10 @@ function animate(now: number): void {
     if(today.getDate()!==lastCalendarDay) {lastCalendarDay=today.getDate();update(false);}
   }
   const dt = Math.min(.1, (now - last) / 1000); last = now;
-  engine.setSurfaces([...elementRects(), { id: 'floor', x: 0, y: engine.height - 3, width: engine.width, height: 5, z: -100 }], now / 1000);
+  if(!isAndroid || now-lastSurfaceSync>=350) {
+    engine.setSurfaces([...elementRects(), { id: 'floor', x: 0, y: engine.height - 3, width: engine.width, height: 5, z: -100 }], now / 1000);
+    lastSurfaceSync=now;
+  }
   if (config.enabled) {
     for(let remaining=dt;remaining>0;) {
       const step=Math.min(1/30,remaining);engine.step(step);remaining-=step;

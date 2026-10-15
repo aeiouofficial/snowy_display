@@ -2,14 +2,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
-test('mobile app-shell uses one stationary viewport and independent scrolling content',()=>{
+test('Android is a four-row fixed shell with a separate always-visible preview',()=>{
  const css=read('../src/style.css');
- assert.match(css,/html,body,#app\s*\{[^}]*100dvh;overflow:hidden/);
- assert.match(css,/\.app-shell\s*\{[^}]*display:flex;flex-direction:column/);
- assert.match(css,/\.studio-panel\s*\{[^}]*flex:1 1 0;min-height:0;overflow-y:auto/);
- assert.match(css,/\.studio-tabs\s*\{[^}]*position:relative;top:auto/);
- assert.match(css,/\.theme-gallery\s*\{max-height:none;overflow:visible\}/);
- assert.match(css,/\.environment-field\s*\{display:none\}/);
+ const app=read('../src/app.ts');
+ assert.match(css,/html\.android-ui \.app-shell\{[\s\S]*?grid-template-rows:auto auto minmax\(0,1fr\) auto/);
+ assert.match(css,/html\.android-ui \.studio-panel\{[\s\S]*?grid-row:3;[\s\S]*?overflow-y:auto/);
+ assert.match(css,/html\.android-ui \.visual\{[\s\S]*?grid-row:2/);
+ assert.match(css,/html\.android-ui \.studio-tabs\{[\s\S]*?grid-row:4/);
+ assert.match(app,/shell\.insertBefore\(visual,scenesPanel\)/);
+ assert.doesNotMatch(app,/scenesPanel\.prepend\(visual\)/);
+ assert.match(css,/html\.android-ui \.fake-window\{display:none!important\}/);
 });
 test('Android UI exposes native permission, start, status and stop without a fullscreen HTML modal',()=>{
  const app=read('../src/app.ts');

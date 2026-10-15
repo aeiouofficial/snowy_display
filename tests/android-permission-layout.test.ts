@@ -19,7 +19,8 @@ test('single package-wide Android overlay permission gate is requested once and 
 test('Android mobile shell pins header and tabs while all scene content scrolls only in the panel',()=>{
  assert.match(app,/android-ui/);
  assert.match(app,/insertBefore\(.*studio-tabs|studioTabs.*before|insertBefore\(tabs/);
- assert.match(app,/panel-scenes.*prepend|scenesPanel\.prepend/);
+ assert.match(app,/shell\.insertBefore\(visual,scenesPanel\)/);
+ assert.doesNotMatch(app,/scenesPanel\.prepend\(visual\)/);
  assert.match(css,/\.android-ui\s+\.app-shell/);
  assert.match(css,/safe-area-inset-top/);
  assert.match(css,/\.studio-panel[\s\S]*overflow-y:auto/);

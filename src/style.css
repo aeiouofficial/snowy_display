@@ -213,190 +213,103 @@ footer{font-size:10px;display:flex;justify-content:space-between;gap:12px;
  *,*:before,*:after{transition:none!important;animation:none!important;scroll-behavior:auto!important}
 }
 
-/* The control viewport is a fixed shell; ONLY the active tab panel scrolls.
-   This prevents the header, preview and bottom navigation moving under
-   Android system UI during swipe navigation. */
-html,body,#app {width:100%;height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none}
-body {overscroll-behavior:none}
-.app-shell {
- height:100%;height:100dvh;min-height:0;overflow:hidden;
- display:flex;flex-direction:column;
- padding:12px 18px 0;
-}
-.header {flex:0 0 auto;margin-bottom:9px;padding:3px 0;min-height:49px;z-index:8}
-.visual {flex:0 0 auto;margin:0 0 10px}
-.scene {height:clamp(115px,23dvh,210px)}
-.scene-caption {padding:10px 13px}
-.preview-head {height:28px}
-.studio-tabs {position:relative;top:auto;flex:0 0 auto;margin:0 0 8px;box-shadow:none}
-.studio-panel {
- flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;
- overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;
- padding:6px 3px max(18px,env(safe-area-inset-bottom));
- touch-action:pan-y;
- scrollbar-width:thin;
-}
-.theme-gallery{max-height:none;overflow:visible}
-footer {display:none}
-.environment-field {display:none} /* inline quality cards; no OS modal select */
-@media (max-width:540px) {
- .app-shell {padding:9px 11px 0}
- .header {margin-bottom:8px}
- .brandmark {height:35px;width:35px;font-size:21px}
- .brandcopy h1 {font-size:17px}
- .brandcopy p {font-size:9px}
- .scene {height:clamp(106px,19dvh,157px)}
- .scene-caption {padding:8px 11px}
- .scene-caption h2 {font-size:13px}
- .scene-caption p {font-size:10px}
- .visual {margin-bottom:9px}
- .studio-tabs {margin-bottom:6px}
- .studio-tabs button {min-height:38px;padding:7px 3px}
- .studio-panel {padding:5px 1px max(20px,env(safe-area-inset-bottom))}
- .category-filters {flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
- .category-filters::-webkit-scrollbar{display:none}
- .settings-block {padding:12px}
-}
-@supports (padding: env(safe-area-inset-top)) {
- .app-shell {
-   padding-top:max(9px,env(safe-area-inset-top));
- }
-}
-
-.android-overlay-controls #android-overlay-status {margin:10px 0;color:#a4dfca;font-size:12px}
-.android-overlay-quick {display:none;border:1px solid #4e9c96;border-radius:9px;background:#244841;color:#dcf9e8;
- font-size:11px;font-weight:700;padding:10px;min-width:105px}
-.android-overlay-quick[aria-pressed="true"]{background:#613b3e;border-color:#9d6368}
-.android-ui .android-overlay-quick:not([hidden]){display:block}
-.android-ui .live-status{display:none}
-.android-ui .app-shell{padding-top:max(24px,env(safe-area-inset-top))}
-.android-ui .header{flex-shrink:0}
-
-/* MOBILE GEOMETRY CONTRACT — fixed header/bottom navigation; ONLY tabs scroll.
-   Real WebViews often expose safe-area CSS values as zero on MIUI; reserve
-   Android status/navigation insets explicitly instead of overlapping system UI. */
-.android-ui html,.android-ui body{overflow:hidden!important}
-.android-ui #app{height:100dvh;overflow:hidden}
-.android-ui .app-shell{
- position:relative;inset:0;max-width:none;width:100%;height:100dvh;
- min-height:0;overflow:hidden;display:flex;flex-direction:column;
- /* WebView2 and Android System UI apply different automatic insets. */
- padding: max(28px, env(safe-area-inset-top, 0px)) 0 max(23px, env(safe-area-inset-bottom, 0px));
- background:#090f1a;
-}
-.android-ui .header{
- flex:0 0 auto;order:0;position:relative;z-index:10;
- margin:0;min-height:56px;padding:8px 15px 7px;
- padding-top:max(10px,env(safe-area-inset-top,10px));
- background:#101c2b;border-bottom:1px solid #283b4d;
- box-shadow:0 2px 12px #070d17aa;
-}
-.android-ui .brandmark{width:34px;height:34px;font-size:20px}
-.android-ui .brandcopy h1{font-size:16px}
-.android-ui .brandcopy p{font-size:9px}
-.android-ui .android-overlay-quick{
- margin-left:auto;padding:7px 9px;min-width:auto;flex:0 0 auto;font-size:10px;
-}
-.android-ui .studio-panel{
- order:1;flex:1 1 0;min-height:0;min-width:0;
- margin:0;padding:13px 15px 24px;
- height:auto;max-height:none;overflow-y:auto;overflow-x:hidden;
- overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;
- scrollbar-width:thin;
-}
-.android-ui .studio-tabs{
- order:2;position:relative;inset:auto;flex:0 0 auto;z-index:12;
- width:100%;margin:0;min-height:66px;border:0;border-top:1px solid #31465b;
- border-radius:0;box-shadow:0 -7px 22px #050b1580;
- padding:5px 7px max(9px,env(safe-area-inset-bottom,9px));
- display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
- gap:3px;background:#101d2d;
-}
-.android-ui .studio-tabs button{
- min-height:50px;min-width:0;padding:5px 3px 7px;
- border-radius:8px;background:transparent;
- display:flex;flex-direction:column;gap:3px;
- align-items:center;justify-content:center;
- font-size:10px;line-height:1.1;font-weight:650;color:#9eb2c5;
- position:relative;white-space:nowrap;
-}
-.android-ui .studio-tabs button[aria-selected="true"]{
- color:#dff4ff;background:#1c3346;box-shadow:none;
-}
-.android-ui .studio-tabs button[aria-selected="true"]::after{
- content:"";position:absolute;bottom:2px;left:25%;width:50%;
- height:2px;background:var(--accent);border-radius:2px;
-}
-.android-ui .tab-symbol{height:22px;width:23px;line-height:1;display:grid;place-items:center;color:inherit}
-.android-ui .tab-symbol svg{display:block;width:21px;height:21px}
-.android-ui .visual{margin:0 0 12px}
-.android-ui .studio-panel .scene{height:clamp(160px,28dvh,235px)}
-.android-ui .studio-panel .theme-gallery{max-height:none;overflow:visible}
-.android-ui .studio-panel .category-filters{flex-wrap:nowrap;overflow-x:auto}
-.android-ui footer{display:none}
-.android-ui .studio-panel:focus{outline:none}
-.android-ui .studio-panel .settings-block{scroll-margin-top:12px}
-.android-ui .scene-card{min-width:0}
-.android-ui .panel-heading{padding-top:1px}
-@media(max-width:375px){
- .android-ui .header{padding-inline:10px}
- .android-ui .brandcopy h1{font-size:15px}
- .android-ui .studio-panel{padding:10px 11px 22px}
- .android-ui .studio-tabs button{font-size:9.5px}
-}
-
-/* Android live preview: fixed beneath the header, visible while editing any
-   section, collapsible in-place without modal layers. */
-.android-ui .visual{
- order:1;flex:0 0 auto;width:100%;max-width:none;margin:0 0 4px;
- border-radius:0;border-inline:0;box-shadow:none;
-}
-.android-ui .visual .preview-head{
- min-height:29px;padding:0 13px;height:30px;
-}
-.android-ui .visual .preview-head .preview-hint{display:none}
-.android-ui .visual .scene{height:clamp(92px,15dvh,136px)}
-.android-ui .visual .scene-caption{padding:6px 12px}
-.android-ui .visual .scene-caption h2{font-size:12px;margin:2px 0}
-.android-ui .visual .scene-caption p{font-size:9px;max-width:260px}
-.android-ui .visual #mobile-preview-toggle{
- border:1px solid #395b75;border-radius:7px;padding:4px 9px;
- background:#1e3449;color:#c2e6fa;font-size:10px;font-weight:650;
-}
-.android-ui .visual.preview-collapsed .scene,
-.android-ui .visual.preview-collapsed .scene-caption{display:none!important}
-.android-ui .visual.preview-collapsed{margin-bottom:0}
-.android-ui .studio-panel{order:2}
-.android-ui .studio-tabs{order:3}
-/* Final Android layout contract: the app shell does not participate in page
-   scrolling; only the visible settings panel scrolls between fixed chrome. */
-html.android-ui,html.android-ui body,html.android-ui #app{
- width:100%;height:100%;height:100dvh;overflow:hidden!important;
- overscroll-behavior:none;
+/* Android control layout — one immutable shell, one independently scrollable
+   settings viewport. No sticky/fixed preview inside a scrolling panel. */
+html.android-ui, html.android-ui body, html.android-ui #app{
+  width:100%;height:100%;height:100dvh;overflow:hidden!important;
+  overscroll-behavior:none;
 }
 html.android-ui .app-shell{
- position:fixed;top:0;right:0;bottom:0;left:0;height:auto;min-height:0;
- overflow:hidden;overscroll-behavior:none;
- padding:max(28px,env(safe-area-inset-top,0px)) 0 max(20px,env(safe-area-inset-bottom,0px));
+  position:fixed;inset:0;height:100dvh;min-height:0;width:100%;
+  max-width:none;overflow:hidden;display:grid;
+  grid-template-rows:auto auto minmax(0,1fr) auto;
+  gap:0;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
+  background:#090f1a;
 }
 html.android-ui .header{
- flex:0 0 auto;min-height:58px;max-height:none;
- padding:10px 14px 9px;position:relative;top:auto;z-index:10;
+  grid-row:1;min-height:58px;margin:0;padding:9px 13px;
+  display:flex;position:relative;z-index:10;
+  background:#101c2b;border-bottom:1px solid #283b4d;
+  box-shadow:0 2px 10px rgba(0,0,0,.35);
 }
-html.android-ui .studio-panel .visual{position:relative;order:0;flex:none;max-height:none;overflow:hidden;margin:0 0 12px;border-radius:10px;border:1px solid var(--border)}
+html.android-ui .brandmark{width:34px;height:34px;font-size:20px}
+html.android-ui .brandcopy h1{font-size:16px}
+html.android-ui .brandcopy p{font-size:9px}
+html.android-ui .live-status{display:none}
+html.android-ui .android-overlay-quick{
+  margin-left:auto;padding:8px 9px;min-width:0;flex:0 0 auto;
+  font-weight:700;font-size:10px;border:1px solid #4e9c96;
+  border-radius:8px;color:#d6f4eb;background:#23423d;
+}
+html.android-ui .android-overlay-quick:not([hidden]){display:block}
+html.android-ui .android-overlay-quick[aria-pressed="true"]{border-color:#a5656b;background:#53343a}
+html.android-ui .visual{
+  grid-row:2;min-height:0;width:100%;margin:0;border-radius:0;
+  box-shadow:none;border:0;border-bottom:1px solid #283b4d;overflow:hidden;
+}
+html.android-ui .visual .preview-head{
+  min-height:29px;height:30px;padding:0 13px;
+}
+html.android-ui .visual .preview-hint{display:none}
+html.android-ui .visual .scene{height:clamp(94px,14dvh,133px)}
+html.android-ui .visual .scene-caption{padding:6px 12px}
+html.android-ui .visual .scene-caption h2{font-size:12px;margin:2px 0}
+html.android-ui .visual .scene-caption p{font-size:9px;max-width:250px}
+html.android-ui .visual #mobile-preview-toggle{
+  margin-left:auto;padding:4px 9px;border:1px solid #395b75;
+  border-radius:7px;background:#1e3449;color:#c2e6fa;
+  font-size:10px;font-weight:650;
+}
+html.android-ui .visual.preview-collapsed .scene,
+html.android-ui .visual.preview-collapsed .scene-caption{display:none!important}
+html.android-ui .fake-window{display:none!important}
 html.android-ui .studio-panel{
- flex:1 1 0;min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;
- overscroll-behavior-y:contain;touch-action:pan-y;
- scroll-behavior:auto;-webkit-overflow-scrolling:touch;
- scrollbar-gutter:stable;
+  grid-row:3;min-width:0;min-height:0;max-height:none;
+  height:auto;overflow-y:auto;overflow-x:hidden;order:unset;
+  margin:0;padding:12px 13px max(19px,env(safe-area-inset-bottom,0px));
+  touch-action:pan-y;overscroll-behavior-y:contain;
+  -webkit-overflow-scrolling:touch;scroll-behavior:auto;
+  scrollbar-width:thin;scrollbar-gutter:stable;
 }
 html.android-ui .studio-panel[hidden]{display:none!important}
-html.android-ui .studio-tabs{
- flex:0 0 auto;min-height:70px;max-height:80px;position:relative;
- bottom:auto;z-index:11;margin:0;
- padding:5px 8px max(8px,env(safe-area-inset-bottom,0px));
+html.android-ui .studio-panel .theme-gallery{max-height:none;overflow:visible}
+html.android-ui .studio-panel .category-filters{
+  flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;
 }
-html.android-ui .studio-tabs button{min-width:0;min-height:54px;padding:5px 2px 7px}
-html.android-ui .tab-symbol{width:24px;height:24px;flex:0 0 24px}
-html.android-ui .tab-symbol svg{width:22px;height:22px;stroke-width:1.8}
-html.android-ui .studio-tabs button[aria-selected="true"]::after{bottom:2px}
+html.android-ui .studio-panel .category-filters::-webkit-scrollbar{display:none}
+html.android-ui .studio-tabs{
+  grid-row:4;min-height:68px;max-height:78px;
+  width:100%;margin:0;padding:4px 7px max(7px,env(safe-area-inset-bottom,0px));
+  position:relative;inset:auto;z-index:12;order:unset;
+  border:0;border-top:1px solid #304459;border-radius:0;
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;
+  background:#101d2d;box-shadow:0 -5px 18px rgba(0,0,0,.34);
+}
+html.android-ui .studio-tabs button{
+  min-height:50px;min-width:0;padding:5px 2px 7px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;position:relative;background:transparent;color:#a8bcd0;
+  font-size:10px;font-weight:650;white-space:nowrap;
+}
+html.android-ui .studio-tabs button[aria-selected="true"]{
+  background:#1c3346;color:#e1f3ff;box-shadow:none;
+}
+html.android-ui .studio-tabs button[aria-selected="true"]::after{
+  content:"";position:absolute;left:25%;width:50%;bottom:1px;
+  height:2px;background:var(--accent);border-radius:2px;
+}
+html.android-ui .tab-symbol{height:22px;width:23px;display:grid;place-items:center;line-height:1}
+html.android-ui .tab-symbol svg{display:block;width:21px;height:21px;stroke-width:1.7}
+html.android-ui .scene-card{min-width:0}
+html.android-ui .panel-heading{padding-top:1px}
+html.android-ui .environment-field{display:none}
+html.android-ui .android-overlay-controls #android-overlay-status{
+  margin:10px 0;color:#a4dfca;font-size:12px;
+}
+html.android-ui footer{display:none}
+@media(max-width:375px){
+ html.android-ui .header{padding-inline:10px}
+ html.android-ui .brandcopy h1{font-size:15px}
+ html.android-ui .studio-panel{padding-inline:10px}
+ html.android-ui .studio-tabs button{font-size:9.5px}
+}
