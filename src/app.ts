@@ -554,11 +554,23 @@ function animate(now: number): void {
 }
 sizePreview();queuePreviewFrame();
 if(isAndroid){
+ let lastPreviewTheme=activeTheme(config).id;
  document.addEventListener('visibilitychange',()=>{
    last=performance.now();
    if(!document.hidden)queuePreviewFrame();
  });
  window.addEventListener('snowy:preview-refresh',()=>{
+   const nextTheme=activeTheme(config).id;
+   if(nextTheme!==lastPreviewTheme){
+     lastPreviewTheme=nextTheme;
+     // A new scene must paint on the next animation frame, even if the
+     // low-power Android preview was waiting for its 4 FPS cadence.
+     lastVisual=0;
+     if(previewWakeTimer!==null){
+       clearTimeout(previewWakeTimer);
+       previewWakeTimer=null;
+     }
+   }
    last=performance.now();
    if(!config.enabled)ctx.clearRect(0,0,engine.width,engine.height);
    queuePreviewFrame();
