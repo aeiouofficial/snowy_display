@@ -22,7 +22,7 @@ test('Android mobile shell pins header and tabs while all scene content scrolls 
  assert.match(app,/shell\.insertBefore\(visual,scenesPanel\)/);
  assert.doesNotMatch(app,/scenesPanel\.prepend\(visual\)/);
  assert.match(css,/\.android-ui\s+\.app-shell/);
- assert.match(css,/safe-area-inset-top/);
+ assert.match(css,/padding:max\(28px,env\(safe-area-inset-top,0px\)\) 0 max\(17px,env\(safe-area-inset-bottom,0px\)\)/);
  assert.match(css,/\.studio-panel[\s\S]*overflow-y:auto/);
 });
 test('permission wording never promises Android can bulk-grant other applications',()=>{

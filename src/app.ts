@@ -391,8 +391,14 @@ for (const item of specs) {
 }
 const toggle = document.querySelector<HTMLButtonElement>('#enabled')!;
 function update(persist = true): void {
-  engine.configure(config);
   const theme=activeTheme(config);
+  // Ambient scenes are not a snow simulation. A 0% snowfall slider must not
+  // make butterflies, fireflies, bats or stars disappear from the WebView
+  // preview (the native service already treats these separately).
+  const previewPhysics=theme.particle==='snow'||theme.particle==='rain'
+    ? config
+    : {...config,snowfall:Math.max(.35,theme.intensity*(.45+.55*config.decorationDensity))};
+  engine.configure(previewPhysics);
   engine.setTheme(theme.id);
   const selectedBudget=PERFORMANCE[resolvePerformance(config.performanceMode)].particles;
   // The WebView preview runs alongside the native full-screen Android overlay.

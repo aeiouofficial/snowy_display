@@ -223,7 +223,7 @@ html.android-ui .app-shell{
   position:fixed;inset:0;height:100dvh;min-height:0;width:100%;
   max-width:none;overflow:hidden;display:grid;
   grid-template-rows:auto auto minmax(0,1fr) auto;
-  gap:0;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
+  gap:0;padding:max(28px,env(safe-area-inset-top,0px)) 0 max(17px,env(safe-area-inset-bottom,0px));
   background:#090f1a;
 }
 html.android-ui .header{
@@ -312,4 +312,10 @@ html.android-ui footer{display:none}
  html.android-ui .brandcopy h1{font-size:15px}
  html.android-ui .studio-panel{padding-inline:10px}
  html.android-ui .studio-tabs button{font-size:9.5px}
+}
+
+/* A vertical settings scroller must not steal horizontal thumb gestures.
+   Native range controls handle their own pointer stream, even on MIUI WebView. */
+html.android-ui .studio-panel input[type=range]{
+  touch-action:none;min-height:34px;cursor:ew-resize;
 }

@@ -91,7 +91,7 @@ export class SnowEngine {
     this.plowInterval=clamp(Number.isFinite(options.plowInterval)?options.plowInterval:20,7,180);
   }
   setParticleLimit(count: number): void {
-    this.particleLimit=clamp(Math.floor(count),100,MAX_FLAKES);
+    this.particleLimit=clamp(Math.floor(count),16,MAX_FLAKES);
     if(this.flakes.length>this.particleLimit) this.flakes.length=this.particleLimit;
   }
   private rand(): number {
