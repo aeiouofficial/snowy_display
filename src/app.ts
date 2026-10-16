@@ -304,6 +304,19 @@ if(isAndroid){
  // Preview is a sibling of the scrolling panels, so it remains visible
  // while Physics, Activity, System and Scenes scroll independently.
  shell.insertBefore(visual,scenesPanel);
+ // The scene filters and search are controls, not scrolling scene content.
+ // Keep the complete scene toolbar in its own immutable grid row.
+ const sceneToolbar=document.createElement('section');
+ sceneToolbar.id='mobile-scene-toolbar';
+ sceneToolbar.className='mobile-scene-toolbar';
+ sceneToolbar.setAttribute('aria-label','Scene browser controls');
+ for(const selector of ['.panel-heading','#category-filters','.search-scenes']){
+   const element=scenesPanel.querySelector<HTMLElement>(selector);
+   if(!element)throw new Error('Missing scene toolbar section: '+selector);
+   sceneToolbar.appendChild(element);
+ }
+ shell.insertBefore(sceneToolbar,scenesPanel);
+ shell.classList.add('scenes-selected');
  const previewButton=document.createElement('button');
  previewButton.id='mobile-preview-toggle';
  previewButton.type='button';

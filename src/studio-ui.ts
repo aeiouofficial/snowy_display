@@ -16,6 +16,10 @@ export function installStudioUI(patch:Patch): (settings:AppSettings,theme:Weathe
  let category='All',query='';
  let lastTheme='',lastAuto=false;
  function setTab(id:string):void{
+  // Pin the category/search toolbar through its bottom edge on Scenes only.
+  const toolbar=document.getElementById('mobile-scene-toolbar');
+  if(toolbar)toolbar.hidden=id!=='scenes';
+  document.querySelector<HTMLElement>('.app-shell')?.classList.toggle('scenes-selected',id==='scenes');
   tabs.forEach((tab)=>{
    const active=tab.dataset.tab===id;
    tab.setAttribute('aria-selected',String(active));

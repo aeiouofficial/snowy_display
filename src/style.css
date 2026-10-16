@@ -319,3 +319,94 @@ html.android-ui footer{display:none}
 html.android-ui .studio-panel input[type=range]{
   touch-action:none;min-height:34px;cursor:ew-resize;
 }
+
+
+/* October 16: compact Android scene browser with a genuinely pinned toolbar.
+   The document, header, preview, categories and search never receive scrolling.
+   Only the active tab panel can scroll. Do not use window/dialog overlays. */
+html.android-ui .app-shell.scenes-selected{
+  grid-template-rows:auto auto auto minmax(0,1fr) auto;
+}
+html.android-ui .mobile-scene-toolbar{
+  grid-row:3;min-width:0;min-height:0;
+  padding:6px 11px 7px;background:#101a29;
+  border-bottom:1px solid #263b51;overflow:hidden;
+}
+html.android-ui .mobile-scene-toolbar[hidden]{display:none!important}
+html.android-ui .app-shell.scenes-selected .studio-panel{grid-row:4}
+html.android-ui .app-shell.scenes-selected .studio-tabs{grid-row:5}
+html.android-ui .mobile-scene-toolbar .panel-heading{
+  padding:0 1px 3px;
+}
+html.android-ui .mobile-scene-toolbar .panel-heading .eyebrow,
+html.android-ui .mobile-scene-toolbar .panel-heading > p{display:none}
+html.android-ui .mobile-scene-toolbar .heading-row{margin:0 0 4px;gap:8px}
+html.android-ui .mobile-scene-toolbar .heading-row h2{font-size:14px;line-height:1.2}
+html.android-ui .mobile-scene-toolbar .content-count{
+  padding:3px 6px;font-size:9px;
+}
+html.android-ui .mobile-scene-toolbar .category-filters{
+  padding:2px 0 5px;gap:5px;flex-wrap:nowrap;
+  overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x proximity;overscroll-behavior-x:contain;
+  scrollbar-width:none;
+}
+html.android-ui .mobile-scene-toolbar .category-filters::-webkit-scrollbar{display:none}
+html.android-ui .mobile-scene-toolbar .category-chip{
+  scroll-snap-align:start;border-radius:6px;
+  padding:5px 9px;min-height:28px;font-size:10px;
+}
+html.android-ui .mobile-scene-toolbar .search-scenes{
+  height:31px;padding:0 9px;margin:1px 0 0;
+  gap:6px;border-radius:7px;
+}
+html.android-ui .mobile-scene-toolbar .search-scenes span{font-size:16px}
+html.android-ui .mobile-scene-toolbar .search-scenes input{font-size:11px}
+html.android-ui .header{
+  min-height:47px;padding:5px 10px;
+}
+html.android-ui .brandmark{height:29px;width:29px;font-size:17px;border-radius:9px}
+html.android-ui .brandcopy h1{font-size:14px;margin-bottom:0}
+html.android-ui .brandcopy p{font-size:7.5px;letter-spacing:1.1px}
+html.android-ui .android-overlay-quick{padding:7px 9px;font-size:10px}
+html.android-ui .visual .preview-head{height:23px;min-height:23px;padding:0 11px;font-size:9px}
+html.android-ui .visual .scene{height:clamp(54px,9dvh,76px)}
+html.android-ui .visual .scene-caption{padding:4px 11px;min-height:33px}
+html.android-ui .visual .scene-caption h2{font-size:11px;margin:0}
+html.android-ui .visual .scene-caption p{display:none}
+html.android-ui .visual #scene-category{font-size:8px;letter-spacing:.7px}
+html.android-ui .visual .scene-running{font-size:8px;padding:4px 6px}
+html.android-ui .visual #mobile-preview-toggle{font-size:9px;padding:3px 7px}
+html.android-ui .studio-panel{
+  padding:8px 10px 14px;scrollbar-gutter:auto;
+}
+html.android-ui .studio-panel .panel-heading{padding:2px 0 7px}
+html.android-ui .studio-panel .eyebrow{font-size:9px}
+html.android-ui .studio-panel .heading-row{margin:2px 0 4px}
+html.android-ui .studio-panel .heading-row h2{font-size:16px}
+html.android-ui .studio-panel .panel-heading p{font-size:10px;line-height:1.35}
+html.android-ui .studio-panel .theme-gallery{
+  gap:6px;margin:0 0 11px;padding:1px 0 5px;
+}
+html.android-ui .scene-card{
+  min-height:51px;padding:5px 6px;gap:7px;border-radius:8px;
+}
+html.android-ui .scene-art{
+  height:35px;width:35px;font-size:17px;border-radius:7px;
+}
+html.android-ui .scene-card-copy strong{font-size:10px;line-height:1.15}
+html.android-ui .scene-card-copy small{font-size:9px}
+html.android-ui .studio-panel .settings-block{
+  padding:9px 10px;margin-bottom:9px;
+}
+html.android-ui .studio-panel .settings-block h3{font-size:12px}
+html.android-ui .studio-tabs{
+  min-height:53px;max-height:61px;
+  padding:2px 5px max(3px,env(safe-area-inset-bottom,0px));
+}
+html.android-ui .studio-tabs button{
+  min-height:43px;padding:3px 2px 5px;gap:2px;
+  font-size:9px;
+}
+html.android-ui .tab-symbol{height:18px;width:20px}
+html.android-ui .tab-symbol svg{height:17px;width:17px}

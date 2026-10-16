@@ -1,5 +1,7 @@
 package io.aeiouofficial.snowydisplay
 
+import android.app.Activity
+import android.app.Application
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -18,6 +20,7 @@ import android.graphics.Path
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
+import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
@@ -46,6 +49,35 @@ class SnowOverlayService : Service() {
  private var overlay:WeatherCanvas?=null
  private var powerReceiver:BroadcastReceiver?=null
  private var thermallyPaused=false
+ // Android window overlays ordinarily also cover this application's controls.
+ // Hide our click-through weather canvas while our own Activity is foreground;
+ // restore it when the user leaves for another app.
+ private var controlsInForeground=true
+ private val activityEvents=object:Application.ActivityLifecycleCallbacks {
+  override fun onActivityCreated(activity:Activity,savedInstanceState:Bundle?){}
+  override fun onActivityStarted(activity:Activity){}
+  override fun onActivityResumed(activity:Activity){
+   if(activity.packageName==packageName){
+    controlsInForeground=true
+    overlay?.visibility=View.INVISIBLE
+    Log.i("SnowyOverlayVisibility","hidden over Snowy Display controls")
+   }
+  }
+  override fun onActivityPaused(activity:Activity){
+   if(activity.packageName==packageName){
+    controlsInForeground=false
+    overlay?.visibility=View.VISIBLE
+    Log.i("SnowyOverlayVisibility","visible across other apps")
+   }
+  }
+  override fun onActivityStopped(activity:Activity){}
+  override fun onActivitySaveInstanceState(activity:Activity,outState:Bundle){}
+  override fun onActivityDestroyed(activity:Activity){}
+ }
+ override fun onCreate(){
+  super.onCreate()
+  application.registerActivityLifecycleCallbacks(activityEvents)
+ }
  private fun refreshPowerPolicy(batteryIntent:Intent?=null){
   val power=getSystemService(Context.POWER_SERVICE) as PowerManager
   val battery=batteryIntent ?: registerReceiver(null,IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -122,6 +154,7 @@ class SnowOverlayService : Service() {
      PixelFormat.TRANSLUCENT)
     params.gravity=Gravity.TOP or Gravity.START
     params.setTitle("Snowy Display Weather Overlay")
+    view.visibility=if(controlsInForeground)View.INVISIBLE else View.VISIBLE
     windowManager?.addView(view,params)
     overlay=view
     running=true
@@ -135,6 +168,7 @@ class SnowOverlayService : Service() {
   return START_NOT_STICKY
  }
  override fun onDestroy(){
+  application.unregisterActivityLifecycleCallbacks(activityEvents)
   powerReceiver?.let{try{unregisterReceiver(it)}catch(_:Exception){}}
   powerReceiver=null
   powerSuspended=false
@@ -263,7 +297,7 @@ private class WeatherCanvas(service:Service):View(service) {
  }
  private fun motifs():List<String> = when(theme) {
   "winter-snow"->listOf("crystal")
-  "winter-blizzard"->listOf("crystal")
+  "winter-blizzard"->listOf("cloud","crystal")
   "winter-frost"->listOf("icicle","crystal")
   "winter-northernlights"->listOf("aurora","pine","moon")
   "winter-forest"->listOf("pine","bird","pine")
@@ -470,7 +504,7 @@ private class WeatherCanvas(service:Service):View(service) {
    else 115f+((i*191)%(max(1,height-350))).toFloat()
    val motion=if(k in setOf("bee","butterfly","bird","bat","kite","firefly","meteor")&&animations&&!reducedMotion)
      sin(t*(if(k=="butterfly")2.8f else .72f)+i)*17f else 0f
-   drawMotif(c,k,x,y+motion,(23f+(i%3)*9f)*scale,t,i)
+   drawMotif(c,k,x,y+motion,(16f+(i%3)*6f)*scale,t,i)
   }
  }
  private fun drawParticles(c:Canvas,w:Float,h:Float,dt:Float){
