@@ -526,9 +526,30 @@ private class WeatherCanvas(service:Service):View(service) {
    35f+rng.nextFloat()*82f,rng.nextFloat()*6.28f,rng.nextInt(4)))
   for(p in particles){
    if(enabled&&!reducedMotion) {
-    p.x+=(wind*43f+sin(elapsed+p.phase)*9f)*dt
-    val factor=when(mode){"rain"->3.7f;"fireflies"->.12f;"embers"->-.65f;"stars"->.28f;else->1f}
-    p.y+=p.speed*dt*factor*gravity
+    val beforeY=p.y
+    val vx=when(mode) {
+     "bats"->(48f+p.speed*.33f)*(if(p.variant%2==0)1f else -1f)
+     "fireflies"->sin(elapsed*1.4f+p.phase)*17f
+     "petals"->wind*32f+sin(elapsed*2.1f+p.phase)*22f
+     "leaves"->wind*45f+sin(elapsed*1.5f+p.phase)*28f
+     else->wind*43f+sin(elapsed+p.phase)*9f
+    }
+    val vy=when(mode) {
+     "rain"->p.speed*3.7f*gravity
+     "fireflies"->sin(elapsed*1.7f+p.phase)*13f
+     "bats"->sin(elapsed*3.5f+p.phase)*22f
+     "stars"->0f
+     "embers"->-p.speed*.65f
+     "petals"->p.speed*.42f*gravity
+     "leaves"->p.speed*.55f*gravity
+     else->p.speed*gravity
+    }
+    p.x+=vx*dt
+    p.y+=vy*dt
+    // Deposit once on a real collision, not once per frame near the edge.
+    if(mode=="snow" && accumulating && beforeY<h-3f && p.y>=h-3f) {
+     depositSnow(p.x,p.r)
+    }
    }
    if(p.x < -10f)p.x=w+5f
    if(p.x>w+10f)p.x=-5f
@@ -554,17 +575,44 @@ private class WeatherCanvas(service:Service):View(service) {
    }
   }
  }
+ // A single impact conserves deposited mass across its neighboring bins.
+ // Screen-width-relative bins avoid a hard-coded assumption about DPI.
+ private fun depositSnow(x:Float,r:Float) {
+  if(depth.isEmpty()||width<=0)return
+  val bin=(x*depth.size/width.toFloat()).toInt().coerceIn(0,depth.lastIndex)
+  val weights=floatArrayOf(.23f,.54f,.23f)
+  var totalWeight=0f
+  for(offset in -1..1)if(bin+offset in depth.indices)totalWeight+=weights[offset+1]
+  if(totalWeight<=0f)return
+  val mass=(r*2f+4f)*cohesion
+  for(offset in -1..1) {
+   val i=bin+offset
+   if(i in depth.indices)depth[i]=(depth[i]+mass*weights[offset+1]/totalWeight).coerceAtMost(maxDepth)
+  }
+ }
+ private fun relaxSnow(dt:Float) {
+  if(depth.size<2||dt<=0f)return
+  val slope=2f+cohesion*7f
+  val maxSlip=dt*(5f+(1f-cohesion)*15f)
+  // Mass-conserving avalanche relaxation: only excessive slopes move.
+  for(i in 0 until depth.lastIndex) {
+   val gradient=depth[i]-depth[i+1]
+   if(kotlin.math.abs(gradient)<=slope)continue
+   val transfer=min(kotlin.math.abs(gradient)/2f-slope/2f,maxSlip)
+   if(transfer<=0f)continue
+   if(gradient>0f) {
+    val moved=min(depth[i],transfer)
+    depth[i]-=moved;depth[i+1]=(depth[i+1]+moved).coerceAtMost(maxDepth)
+   }else {
+    val moved=min(depth[i+1],transfer)
+    depth[i+1]-=moved;depth[i]=(depth[i]+moved).coerceAtMost(maxDepth)
+   }
+  }
+ }
  private fun settleSnow(c:Canvas,w:Float,h:Float,dt:Float){
   if(!accumulating){depth.fill(0f);plowPosition=-1f;return}
   if(depth.isEmpty())return
-  if(enabled) {
-   for(p in particles){
-    if(p.y>=h-8f){
-     val bin=(p.x/14f).toInt().coerceIn(0,depth.lastIndex)
-     depth[bin]=(depth[bin]+p.r*.025f*cohesion).coerceAtMost(maxDepth)
-    }
-   }
-  }
+  if(enabled&&!reducedMotion)relaxSnow(dt)
   if(enabled && plows && depth.any{it>5f}){
    if(plowPosition<0f && elapsed-lastPlow>=plowInterval){
     plowPosition=0f
@@ -594,10 +642,25 @@ private class WeatherCanvas(service:Service):View(service) {
     if(plowPosition>w+45f)plowPosition=-1f
    }
   }
-  for(i in depth.indices) {
-   val amount=depth[i]
-   if(amount>.12f)rectangle(c,i*14f,h-amount,i*14f+15f,h+2f,0xffe6f2fc.toInt(),218)
+  if(depth.none{it>.12f})return
+  // One antialiased contour, not disconnected rectangular snow columns.
+  val binWidth=w/depth.size
+  val contour=Path()
+  contour.moveTo(0f,h+2f)
+  contour.lineTo(0f,h-depth[0])
+  for(i in 1 until depth.size) {
+   val left=(i-1f)*binWidth
+   val mid=(i-.5f)*binWidth
+   contour.quadTo(left,h-depth[i-1],mid,h-(depth[i-1]+depth[i])*.5f)
   }
+  contour.lineTo(w,h-depth.last())
+  contour.lineTo(w,h+2f)
+  contour.close()
+  paint(0xffe6f2fc.toInt(),220)
+  c.drawPath(contour,brush)
+  paint(0xfff4faff.toInt(),230,1.25f,Paint.Style.STROKE)
+  c.drawPath(contour,brush)
+  brush.style=Paint.Style.FILL
  }
  override fun onDraw(c:Canvas){
   super.onDraw(c)
