@@ -160,7 +160,7 @@ let overlayRunning = false;
 let overlayActionBusy = false;
 let pendingOverlayStart = false;
 try { pendingOverlayStart = sessionStorage.getItem(OVERLAY_PENDING_KEY) === '1'; } catch { /* Private browser settings */ }
-type OverlayStatus = { granted:boolean; running:boolean; permissionRequested?:boolean };
+type OverlayStatus = { granted:boolean; running:boolean; powerSuspended?:boolean; permissionRequested?:boolean };
 function markPendingOverlayStart(pending:boolean):void {
  pendingOverlayStart = pending;
  try {
@@ -181,9 +181,11 @@ function displayOverlayStatus(value:OverlayStatus):void {
  overlayRunning=value.running;
  overlayStatus.textContent=!value.granted
   ? 'One approval for Snowy Display. Android may show a list: select only Snowy Display, allow it, then return. Weather will appear over other apps automatically.'
-  : value.running
-   ? 'Weather is running across compatible apps. No per-app approvals are required.'
-   : 'Snowy Display is approved for other apps. Start the weather whenever you want.';
+  : value.running && value.powerSuspended
+   ? 'Weather paused to protect the battery or while the screen is off.'
+   : value.running
+    ? 'Weather is running across compatible apps. No per-app approvals are required.'
+    : 'Snowy Display is approved for other apps. Start the weather whenever you want.';
  overlayQuick.textContent=value.running?'Stop weather':value.granted?'Start weather':'Allow once';
  overlayQuick.setAttribute('aria-pressed',String(value.running));
  overlayStartButton.textContent=value.granted?'Start weather':'Allow Snowy Display once';
@@ -317,7 +319,10 @@ if(isAndroid){
  let initialCollapsed=false;
  try{initialCollapsed=localStorage.getItem(previewKey)==='true';}catch{/* Use default expanded */}
  collapsePreview(initialCollapsed);
- previewButton.addEventListener('click',()=>collapsePreview(!visual.classList.contains('preview-collapsed')));
+ previewButton.addEventListener('click',()=>{
+   collapsePreview(!visual.classList.contains('preview-collapsed'));
+   window.dispatchEvent(new Event('snowy:preview-refresh'));
+  });
  androidControls.hidden=false;overlayQuick.hidden=false;
  document.querySelector<HTMLElement>('#android-interaction-note')!.hidden=false;
  const systemPanel=document.querySelector<HTMLElement>('#panel-system')!;
@@ -432,7 +437,10 @@ function update(persist = true): void {
   }
   // Forward EVERY setting (not only precipitation) to the native Android
   // service, which renders above other applications with the same scene ID.
-  if (isAndroid) scheduleOverlayUpdate();
+  if (isAndroid) {
+    scheduleOverlayUpdate();
+    window.dispatchEvent(new Event('snowy:preview-refresh'));
+  }
   if (persist) {
     editRevision += 1;
     void broadcastSettings(config);
@@ -482,23 +490,39 @@ let last = performance.now();
 let lastVisual=0;
 let lastSurfaceSync=0;
 let lastCalendarDay=new Date().getDate();
+let previewFramePending=false;
+let previewWakeTimer:ReturnType<typeof setTimeout>|null=null;
+function previewIsSuspended():boolean {
+ return isAndroid && (document.hidden || !config.enabled ||
+   Boolean(scene.closest('.visual')?.classList.contains('preview-collapsed')));
+}
+function queuePreviewFrame():void {
+ if(previewFramePending || previewIsSuspended())return;
+ previewFramePending=true;
+ requestAnimationFrame(animate);
+}
+function schedulePreviewFrame():void {
+ if(previewIsSuspended())return;
+ if(!isAndroid){queuePreviewFrame();return;}
+ if(previewWakeTimer!==null)return;
+ // Fullscreen overlay renders natively. The WebView is only a miniature preview.
+ const previewFPS=config.reduceMotion?2:overlayRunning?4:8;
+ previewWakeTimer=setTimeout(()=>{
+   previewWakeTimer=null;
+   queuePreviewFrame();
+ },Math.ceil(1000/previewFPS));
+}
 function animate(now: number): void {
-  requestAnimationFrame(animate);
-  // Keep collapsed previews CPU-idle while leaving the native weather active.
-  if(isAndroid && (document.hidden ||
-      scene.closest('.visual')?.classList.contains('preview-collapsed'))){
-    last=now;return;
-  }
-  // Avoid running two full-speed rendering loops on battery-powered Android:
-  // WebView is only a miniature preview; system-wide effects are drawn natively.
-  const requestedFPS=PERFORMANCE[resolvePerformance(config.performanceMode)].fps;
-  const previewFPS=isAndroid
-    ?(config.reduceMotion?6:overlayRunning?10:Math.min(18,requestedFPS))
-    :requestedFPS;
-  const interval=1000/previewFPS;
-  if(now-lastVisual<interval)return;
-  lastVisual=now;
-  if(config.automaticTheme) {
+ previewFramePending=false;
+ if(previewIsSuspended()){last=now;return;}
+ const requestedFPS=PERFORMANCE[resolvePerformance(config.performanceMode)].fps;
+ const previewFPS=isAndroid
+   ?(config.reduceMotion?2:overlayRunning?4:Math.min(8,requestedFPS))
+   :requestedFPS;
+ const interval=1000/previewFPS;
+ if(now-lastVisual<interval){schedulePreviewFrame();return;}
+ lastVisual=now;
+ if(config.automaticTheme) {
     const today=new Date();
     if(today.getDate()!==lastCalendarDay) {lastCalendarDay=today.getDate();update(false);}
   }
@@ -513,8 +537,20 @@ function animate(now: number): void {
     }
     drawSnow(ctx,engine,false,activeTheme(config).id,config);
   } else ctx.clearRect(0, 0, engine.width, engine.height);
+ schedulePreviewFrame();
 }
-sizePreview(); requestAnimationFrame(animate);
+sizePreview();queuePreviewFrame();
+if(isAndroid){
+ document.addEventListener('visibilitychange',()=>{
+   last=performance.now();
+   if(!document.hidden)queuePreviewFrame();
+ });
+ window.addEventListener('snowy:preview-refresh',()=>{
+   last=performance.now();
+   if(!config.enabled)ctx.clearRect(0,0,engine.width,engine.height);
+   queuePreviewFrame();
+ });
+}
 for (const el of scene.querySelectorAll<HTMLElement>('[data-window]')) {
   let drag: { id: number; px: number; py: number; x: number; y: number } | null = null;
   el.addEventListener('pointerdown', event => {

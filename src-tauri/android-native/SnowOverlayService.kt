@@ -6,6 +6,11 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.Context
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.os.BatteryManager
+import android.os.PowerManager
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -34,9 +39,48 @@ class SnowOverlayService : Service() {
   const val CLEAR="io.aeiouofficial.snowydisplay.CLEAR"
   @Volatile var running=false
    private set
+  @Volatile var powerSuspended=false
+   private set
  }
  private var windowManager:WindowManager?=null
  private var overlay:WeatherCanvas?=null
+ private var powerReceiver:BroadcastReceiver?=null
+ private var thermallyPaused=false
+ private fun refreshPowerPolicy(batteryIntent:Intent?=null){
+  val power=getSystemService(Context.POWER_SERVICE) as PowerManager
+  val battery=batteryIntent ?: registerReceiver(null,IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+  val level=battery?.getIntExtra(BatteryManager.EXTRA_LEVEL,100)?:100
+  val size=(battery?.getIntExtra(BatteryManager.EXTRA_SCALE,100)?:100).coerceAtLeast(1)
+  val pct=(level*100/size).coerceIn(0,100)
+  val temperature=(battery?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE,250)?:250)/10f
+  // Hysteresis avoids oscillating at the thermal threshold.
+  if(temperature>=43f)thermallyPaused=true
+  else if(temperature<=41f)thermallyPaused=false
+  val paused=!power.isInteractive || thermallyPaused || pct<=7
+  val conserve=power.isPowerSaveMode || pct<=20
+  if(powerSuspended!=paused){
+   Log.i("SnowyOverlayPower","render suspended=$paused thermal=$thermallyPaused battery=$pct")
+  }
+  powerSuspended=paused
+  overlay?.setPowerPolicy(paused,conserve)
+ }
+ private fun watchPower(){
+  if(powerReceiver!=null)return
+  val receiver=object:BroadcastReceiver(){
+   override fun onReceive(context:Context?,intent:Intent?){
+    refreshPowerPolicy(if(intent?.action==Intent.ACTION_BATTERY_CHANGED)intent else null)
+   }
+  }
+  val filter=IntentFilter().apply {
+   addAction(Intent.ACTION_SCREEN_ON)
+   addAction(Intent.ACTION_SCREEN_OFF)
+   addAction(Intent.ACTION_BATTERY_CHANGED)
+   addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
+  }
+  registerReceiver(receiver,filter)
+  powerReceiver=receiver
+  refreshPowerPolicy()
+ }
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
   if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY}
@@ -81,6 +125,7 @@ class SnowOverlayService : Service() {
     windowManager?.addView(view,params)
     overlay=view
     running=true
+    watchPower()
    }catch(e:Exception){
     android.util.Log.e("SnowyOverlay","Could not create Android overlay",e)
     stopSelf();return START_NOT_STICKY
@@ -90,6 +135,9 @@ class SnowOverlayService : Service() {
   return START_NOT_STICKY
  }
  override fun onDestroy(){
+  powerReceiver?.let{try{unregisterReceiver(it)}catch(_:Exception){}}
+  powerReceiver=null
+  powerSuspended=false
   overlay?.release()
   overlay?.let{try{windowManager?.removeView(it)}catch(_:Exception){}}
   overlay=null;running=false
@@ -129,6 +177,17 @@ private class WeatherCanvas(service:Service):View(service) {
  private var previous=0L
  private var elapsed=0f
  private var active=true
+ private var powerPaused=false
+ private var powerConstrained=false
+ fun setPowerPolicy(paused:Boolean,conserve:Boolean){
+  val changed=powerPaused!=paused || powerConstrained!=conserve
+  powerPaused=paused
+  powerConstrained=conserve
+  if(changed){
+   previous=0L
+   invalidate()
+  }
+ }
  private var lastPlow=-100f
  private var plowPosition=-1f
  private var touchedBin=-1
@@ -416,7 +475,7 @@ private class WeatherCanvas(service:Service):View(service) {
  }
  private fun drawParticles(c:Canvas,w:Float,h:Float,dt:Float){
   // Mobile compositor budget: no 150-particle + 60 FPS full-screen path.
-  val limit=when(quality){"eco"->22;"high"->72;else->40}
+  val limit=when(quality){"eco"->12;"high"->40;else->24}
   // Snowfall is a precipitation rate, NOT a global visibility knob.
   // With snowfall at zero, leaves, stars, lanterns, bees and fireflies
   // must remain visible. Decoration density independently controls those.
@@ -508,20 +567,20 @@ private class WeatherCanvas(service:Service):View(service) {
  }
  override fun onDraw(c:Canvas){
   super.onDraw(c)
-  if(!active)return
+  if(!active||powerPaused||!enabled)return
   val now=System.nanoTime()
   val dt=if(previous==0L).016f else ((now-previous)/1_000_000_000f).coerceIn(.004f,.065f)
   previous=now
   elapsed+=dt
   val w=width.toFloat();val h=height.toFloat()
   if(w<=0f||h<=0f)return
-  if(enabled) {
-   drawDecorations(c,w,h)
-   drawParticles(c,w,h,dt)
-   settleSnow(c,w,h,dt)
-  }
-  // Rendering is on Android's main thread. Cap redraws to preserve input
-  // latency and battery life; no loop at all when effects are disabled.
-  if(enabled)postInvalidateDelayed(1000L/when(quality){"eco"->12;"high"->30;else->20})
+  drawDecorations(c,w,h)
+  drawParticles(c,w,h,dt)
+  settleSnow(c,w,h,dt)
+  // Never redraw while screen-off, disabled, thermally hot or critically low.
+  // Battery saver and 20% or less reduce the compositor to four FPS.
+  val baselineFps=when(quality){"eco"->8;"high"->20;else->12}
+  val fps=if(powerConstrained)min(4,baselineFps) else baselineFps
+  postInvalidateDelayed(1000L/fps)
  }
 }

@@ -19,14 +19,16 @@ test('native full-screen Android overlay limits props to subtle weather accents'
  assert.doesNotMatch(native,/val features=motifs\(\)\n  if\(features\.isEmpty\(\)\)/);
 });
 test('Android rendering budgets protect CPU and battery',()=>{
- assert.match(native,/val limit=when\(quality\)\{"eco"->22;"high"->72;else->40\}/);
- assert.match(native,/if\(enabled\)postInvalidateDelayed\(1000L\/when\(quality\)\{"eco"->12;"high"->30;else->20\}\)/);
+ assert.match(native,/val limit=when\(quality\)\{"eco"->12;"high"->40;else->24\}/);
+ assert.match(native,/val baselineFps=when\(quality\)\{"eco"->8;"high"->20;else->12\}/);
+ assert.match(native,/if\(powerConstrained\)min\(4,baselineFps\)/);
+ assert.match(native,/if\(!active\|\|powerPaused\|\|!enabled\)return/);
  assert.match(native,/intent\?\.action==UPDATE && overlay!=null/);
  assert.match(app,/const previewFPS=isAndroid/);
  assert.match(app,/Math\.min\(64,selectedBudget\)/);
  assert.match(app,/now-lastSurfaceSync>=350/);
  assert.match(app,/nativeUpdateTimer=setTimeout/);
- assert.match(app,/if\(isAndroid && \(document\.hidden/);
+ assert.match(app,/document\.hidden \|\| !config\.enabled/);
 });
 test('preview remains outside each independently scrolling Android settings section',()=>{
  assert.match(app,/shell\.insertBefore\(visual,scenesPanel\)/);

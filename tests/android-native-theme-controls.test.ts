@@ -31,5 +31,8 @@ test('default decoration density gives more than one season motif while snow rem
  assert.match(native,/val maxDraw=\(5\*density\)\.toInt\(\)\.coerceIn\(0,5\)/);
  assert.match(native,/"candles","star","lantern","pumpkin"/);
  assert.match(native,/Log\.i\("SnowyOverlaySettings"/);
+ assert.match(native,/ACTION_SCREEN_OFF/);
+ assert.match(native,/ACTION_BATTERY_CHANGED/);
+ assert.match(native,/thermallyPaused/);
  assert.match(native,/if\(features\.isEmpty\(\)\)return/);
 });

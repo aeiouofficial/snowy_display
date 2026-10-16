@@ -44,6 +44,7 @@ class SnowOverlayPlugin(private val host: Activity) : Plugin(host) {
   val o=JSObject()
   o.put("granted", granted())
   o.put("running", SnowOverlayService.running)
+  o.put("powerSuspended", SnowOverlayService.powerSuspended)
   o.put("permissionRequested", requested)
   invoke.resolve(o)
  }
