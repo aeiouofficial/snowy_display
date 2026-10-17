@@ -187,6 +187,9 @@ private class WeatherCanvas(service:Service):View(service) {
  private val brush=Paint(Paint.ANTI_ALIAS_FLAG)
  private val rng=Random(System.nanoTime())
  private val particles=ArrayList<Particle>()
+ private val risingThemes=setOf("ambient-embers","halloween-embers","event-valentine",
+  "advent-1","advent-2","advent-3","advent-4",
+  "spring-meadow","summer-goldenhour","autumn-harvest","event-easter")
  private var depth=FloatArray(0)
  private var theme="winter-snow"
  private var mode="snow"
@@ -314,15 +317,15 @@ private class WeatherCanvas(service:Service):View(service) {
   "summer-kite"->listOf("kite","cloud","sun")
   "summer-goldenhour"->listOf("sun","bird","cloud")
   "autumn-leaves"->listOf("branch","acorn","leaf")
-  "autumn-mist"->listOf("mist","branch","acorn")
+  "autumn-mist"->listOf("mist","acorn")
   "autumn-harvest"->listOf("pumpkin","acorn","lantern")
-  "autumn-migration"->listOf("bird","branch","bird")
+  "autumn-migration"->listOf("bird","cloud","bird")
   "weather-thunder"->listOf("lightning","cloud")
   "weather-fog"->listOf("mist","mist","cloud")
   "weather-drizzle"->listOf("cloud","flower","cloud")
-  "weather-windy"->listOf("kite","leaf","branch")
+  "weather-windy"->listOf("kite","leaf","cloud")
   "halloween-bats"->listOf("moon","bat","pumpkin")
-  "halloween-embers"->listOf("lantern","pumpkin","bat")
+  "halloween-embers"->listOf("lantern","mist","pumpkin")
   "christmas-snow"->listOf("pine","lights","star")
   "newyear-confetti"->listOf("firework","star","firework")
   "event-easter"->listOf("flower","butterfly","sun")
@@ -507,6 +510,297 @@ private class WeatherCanvas(service:Service):View(service) {
    drawMotif(c,k,x,y+motion,(16f+(i%3)*6f)*scale,t,i)
   }
  }
+  // Each catalog theme owns a foreground glyph pair; no generic snow/dot fallback.
+  // The shared glyph vocabulary is a drawing primitive library, NOT a shared effect.
+  private fun themeGlyphs():Pair<String,String> = when(theme){
+   "winter-snow"->"flake" to "ice-star"
+   "winter-blizzard"->"snow-streak" to "ice-shard"
+   "winter-frost"->"ice-star" to "ice-shard"
+   "winter-northernlights"->"ice-shard" to "star"
+   "winter-forest"->"needle" to "flake"
+   "spring-petals"->"petal" to "seed"
+   "spring-rain"->"rain" to "prism"
+   "spring-pollen"->"pollen" to "seed"
+   "spring-butterflies"->"butterfly" to "petal"
+   "spring-meadow"->"seed" to "pollen"
+   "spring-rainbow"->"prism" to "rain"
+   "summer-fireflies"->"firefly" to "pollen"
+   "summer-showers"->"downpour" to "rain"
+   "summer-stargaze"->"star" to "meteor"
+   "summer-bees"->"bee" to "pollen"
+   "summer-kite"->"ribbon" to "seed"
+   "summer-goldenhour"->"sun-dust" to "seed"
+   "autumn-leaves"->"maple" to "needle"
+   "autumn-mist"->"leaf-fog" to "grain"
+   "autumn-harvest"->"lantern" to "grain"
+   "autumn-migration"->"bird" to "maple"
+   "weather-thunder"->"lightning" to "downpour"
+   "weather-fog"->"fog" to "leaf-fog"
+   "weather-drizzle"->"drizzle" to "prism"
+   "weather-windy"->"gust" to "maple"
+   "halloween-bats"->"bat" to "wisp"
+   "halloween-embers"->"wisp" to "lantern"
+   "advent-1"->"candle" to "sparkler"
+   "advent-2"->"sparkler" to "candle"
+   "advent-3"->"candle" to "heart"
+   "advent-4"->"star" to "candle"
+   "christmas-snow"->"gift" to "flake"
+   "newyear-confetti"->"confetti" to "sparkler"
+   "event-easter"->"egg" to "butterfly"
+   "event-valentine"->"heart" to "sparkler"
+   "ambient-embers"->"flame" to "sparkler"
+   "ambient-cosmos"->"galaxy" to "meteor"
+   "ambient-moonlight"->"crescent" to "star"
+   else->"flake" to "ice-star"
+  }
+  private fun particleMotion(p:Particle,dt:Float):Pair<Float,Float> {
+   val time=elapsed+p.phase
+   val breezy=wind*35f
+   return when(theme){
+    "winter-blizzard"->(breezy*3.5f+p.speed*.65f) to (p.speed*1.7f*gravity)
+    "winter-frost"->sin(time*.5f)*3f to sin(time*.7f)*2f
+    "winter-northernlights"->sin(time*.6f)*10f to p.speed*.15f*gravity
+    "spring-petals"->(breezy*.9f+sin(time*1.8f)*23f) to (p.speed*.42f*gravity)
+    "spring-butterflies"->cos(time*2.5f)*38f to sin(time*3.1f)*24f
+    "spring-pollen"->sin(time*1.4f)*12f to sin(time*1.2f)*9f
+    "spring-meadow"->sin(time*.8f)*13f to -p.speed*.16f
+    "spring-rainbow"->sin(time*.7f)*8f to p.speed*.16f
+    "summer-fireflies"->sin(time*1.5f)*19f to cos(time*1.7f)*15f
+    "summer-showers"->(breezy+p.speed*.08f) to p.speed*3.4f*gravity
+    "summer-stargaze"->0f to 0f
+    "summer-bees"->(cos(time*3.5f)*30f) to (sin(time*2.7f)*23f)
+    "summer-kite"->(breezy*1.3f+sin(time)*14f) to sin(time*.7f)*19f
+    "summer-goldenhour"->sin(time*.4f)*6f to -p.speed*.08f
+    "autumn-leaves"->(breezy*1.4f+sin(time*1.7f)*23f) to p.speed*.54f*gravity
+    "autumn-mist"->sin(time*.6f)*13f to cos(time*.4f)*4f
+    "autumn-harvest"->sin(time*.8f)*10f to -p.speed*.23f
+    "autumn-migration"->(p.speed*.5f) to sin(time*2f)*5f
+    "weather-thunder"->(breezy*2.2f+p.speed*.25f) to (p.speed*3.5f*gravity)
+    "weather-fog"->(breezy*.2f+sin(time*.4f)*8f) to sin(time*.33f)*3f
+    "weather-drizzle"->breezy*.25f to p.speed*2.1f*gravity
+    "weather-windy"->(breezy*3f+p.speed*.6f) to sin(time*2.1f)*15f
+    "halloween-bats"->(p.speed*.9f) to sin(time*3.6f)*24f
+    "halloween-embers"->sin(time*.9f)*13f to -p.speed*.28f
+    "ambient-embers"->sin(time*1.4f)*7f to -p.speed*.75f
+    "ambient-cosmos"->cos(time*.35f)*5f to sin(time*.4f)*6f
+    "ambient-moonlight"->sin(time*.45f)*7f to sin(time*.6f)*3f
+    "event-easter"->sin(time*1.5f)*16f to -p.speed*.11f
+    "event-valentine"->sin(time*1.2f)*15f to -p.speed*.22f
+    "newyear-confetti"->(breezy+sin(time*2.4f)*28f) to p.speed*.9f*gravity
+    "advent-1"->sin(time)*2f to -p.speed*.1f
+    "advent-2"->sin(time*1.3f)*4f to -p.speed*.14f
+    "advent-3"->sin(time*1.2f)*5f to -p.speed*.15f
+    "advent-4"->sin(time*1.7f)*8f to -p.speed*.2f
+    "christmas-snow"->sin(time*.8f)*8f to p.speed*.37f*gravity
+    "spring-rain"->breezy*.5f to p.speed*2.3f*gravity
+    "winter-forest"->sin(time*.7f)*5f to p.speed*.35f*gravity
+    "winter-snow"->(breezy*.35f+sin(time*.85f)*9f) to p.speed*.65f*gravity
+    else->breezy to p.speed*gravity
+   }
+  }
+  private fun uniqueGlyph(c:Canvas,kind:String,x:Float,y:Float,s:Float,tint:Int,phase:Float){
+   val s0=s.coerceIn(.8f,13f)
+   val t=if(animations&&!reducedMotion)elapsed+phase else phase
+   when(kind){
+    "flake","ice-star"->{
+     val arms=if(kind=="flake")6 else 4
+     for(i in 0 until arms){
+      val a=i*Math.PI/arms
+      line(c,x-cos(a).toFloat()*s0,y-sin(a).toFloat()*s0,
+       x+cos(a).toFloat()*s0,y+sin(a).toFloat()*s0,tint,1.2f,230)
+      if(kind=="flake"){
+       line(c,x+cos(a).toFloat()*s0*.55f,y+sin(a).toFloat()*s0*.55f,
+        x+cos(a+.42).toFloat()*s0*.67f,y+sin(a+.42).toFloat()*s0*.67f,tint,.9f,170)
+      }
+     }
+    }
+    "snow-streak","rain","downpour","drizzle"->{
+     val length=when(kind){"snow-streak"->4f;"downpour"->9f;"drizzle"->2f;else->6f}*s0
+     line(c,x-length*.17f,y-length*.45f,x+length*.17f,y+length*.55f,tint,
+      if(kind=="downpour")1.8f else if(kind=="drizzle").7f else 1.15f,198)
+     if(kind=="rain"||kind=="downpour")oval(c,x,y+length*.55f,s0*.3f,s0*.12f,tint,110)
+    }
+    "ice-shard","needle","grain"->poly(c,tint,210,
+      x,y-s0,x+s0*.32f,y-s0*.18f,x+s0*.16f,y+s0,
+      x-s0*.25f,y+s0*.56f)
+    "petal"->{
+     val path=Path()
+     path.moveTo(x,y-s0)
+     path.cubicTo(x+s0,y-s0*.8f,x+s0,y+s0*.65f,x,y+s0)
+     path.cubicTo(x-s0,y+s0*.65f,x-s0,y-s0*.8f,x,y-s0)
+     paint(tint,206);c.drawPath(path,brush)
+     line(c,x,y-s0*.5f,x,y+s0*.55f,Color.WHITE,.55f,74)
+    }
+    "pollen","seed"->{
+     if(kind=="seed"){
+      oval(c,x,y,s0*.28f,s0*.55f,tint,205)
+      line(c,x,y,x+s0*.6f,y-s0*.85f,tint,.7f,170)
+     }else for(i in 0..3){
+      val a=i*Math.PI/2+t*.1
+      disc(c,x+cos(a).toFloat()*s0*.4f,y+sin(a).toFloat()*s0*.4f,s0*.2f,tint,165)
+     }
+    }
+    "butterfly"->drawMotif(c,"butterfly",x,y,s0*1.8f,t,phase.toInt())
+    "prism"->{
+     poly(c,tint,145,x,y-s0,x+s0*.75f,y+s0*.6f,x-s0*.75f,y+s0*.6f)
+     line(c,x-s0*.8f,y+s0*.5f,x+s0*.8f,y+s0*.5f,Color.WHITE,.7f,155)
+    }
+    "firefly","sun-dust"->{
+     disc(c,x,y,s0*3.4f,tint,35)
+     disc(c,x,y,s0*.7f,tint,if(kind=="firefly")(.65f+.32f*sin(t*2)).times(250).toInt() else 190)
+    }
+    "meteor","sparkler"->{
+     line(c,x-s0*2.8f,y-s0*2.3f,x,y,tint,1.3f,170)
+     disc(c,x,y,s0*.58f,tint,235)
+     line(c,x-s0*.55f,y,x+s0*.55f,y,tint,1.2f,210)
+    }
+    "bee"->{
+     oval(c,x,y,s0*.92f,s0*.5f,0xffffcc55.toInt(),230)
+     oval(c,x-s0*.27f,y-s0*.61f,s0*.37f,s0*.3f,0xffe7faff.toInt(),126)
+     oval(c,x+s0*.27f,y-s0*.61f,s0*.37f,s0*.3f,0xffe7faff.toInt(),126)
+     line(c,x-s0*.2f,y-s0*.45f,x-s0*.2f,y+s0*.46f,Color.DKGRAY,1.3f)
+    }
+    "ribbon","gust"->{
+     val path=Path()
+     path.moveTo(x-s0*2,y+s0)
+     path.cubicTo(x-s0,y-s0*1.2f,x+s0*.3f,y+s0,x+s0*1.6f,y-s0)
+     paint(tint,180,if(kind=="gust")1.3f else 2f,Paint.Style.STROKE)
+     c.drawPath(path,brush);brush.style=Paint.Style.FILL
+    }
+    "maple"->poly(c,tint,210,
+     x,y-s0,x-s0*.25f,y-s0*.42f,x-s0*.8f,y-s0*.6f,
+     x-s0*.53f,y-s0*.06f,x-s0,y+s0*.22f,x-s0*.33f,y+s0*.35f,
+     x,y+s0*.72f,x+s0*.33f,y+s0*.35f,x+s0,y+s0*.22f,
+     x+s0*.53f,y-s0*.06f,x+s0*.8f,y-s0*.6f,x+s0*.25f,y-s0*.42f)
+    "leaf-fog","fog"->{
+     val alpha=if(kind=="fog")21 else 49
+     oval(c,x,y,s0*3.2f,s0*.53f,tint,alpha)
+     oval(c,x+s0*1.1f,y-s0*.1f,s0*2f,s0*.4f,tint,alpha/2)
+    }
+    "bird"->{
+     val wave=sin(t*4)*s0*.25f
+     line(c,x-s0*1.2f,y+wave,x,y-s0*.14f,tint,1.5f)
+     line(c,x,y-s0*.14f,x+s0*1.2f,y+wave,tint,1.5f)
+    }
+    "lightning"->poly(c,tint,230,x-s0*.2f,y-s0,
+     x+s0*.48f,y-s0*.18f,x+s0*.12f,y-s0*.16f,
+     x+s0*.36f,y+s0,x-s0*.44f,y+s0*.08f,x,y)
+    "bat"->drawMotif(c,"bat",x,y,s0*2.5f,t,phase.toInt())
+    "wisp","flame","candle"->{
+     disc(c,x,y,s0*2.4f,tint,32)
+     poly(c,tint,204,x,y-s0*1.4f,x+s0*.55f,y-s0*.3f,
+      x+s0*.45f,y+s0*.63f,x,y+s0,x-s0*.45f,y+s0*.63f,x-s0*.55f,y-s0*.3f)
+    }
+    "gift"->{
+     rectangle(c,x-s0*.66f,y-s0*.66f,x+s0*.66f,y+s0*.66f,tint,214)
+     rectangle(c,x-s0*.13f,y-s0*.66f,x+s0*.13f,y+s0*.66f,secondary,220)
+     rectangle(c,x-s0*.66f,y-s0*.1f,x+s0*.66f,y+s0*.1f,secondary,220)
+    }
+    "confetti"->{
+     poly(c,tint,215,x-s0*.5f,y-s0,x+s0*.65f,y-s0*.66f,
+      x+s0*.4f,y+s0,x-s0*.8f,y+s0*.6f)
+    }
+    "galaxy"->{
+     disc(c,x,y,s0*2.9f,tint,26)
+     paint(tint,167,1.3f,Paint.Style.STROKE)
+     c.drawOval(x-s0*1.6f,y-s0*.53f,x+s0*1.6f,y+s0*.53f,brush)
+     brush.style=Paint.Style.FILL
+     disc(c,x,y,s0*.26f,tint,231)
+    }
+    "crescent"->{
+     paint(tint,200);val path=Path()
+     path.addCircle(x,y,s0,Path.Direction.CW)
+     val hollow=Path();hollow.addCircle(x+s0*.37f,y-s0*.18f,s0*.78f,Path.Direction.CW)
+     path.op(hollow,Path.Op.DIFFERENCE)
+     c.drawPath(path,brush)
+    }
+    "egg"->{
+     oval(c,x,y,s0*.66f,s0,tint,205)
+     line(c,x-s0*.42f,y+s0*.12f,x+s0*.42f,y+s0*.12f,secondary,1.1f,220)
+    }
+    "heart"->{
+     disc(c,x-s0*.36f,y-s0*.25f,s0*.5f,tint,192)
+     disc(c,x+s0*.36f,y-s0*.25f,s0*.5f,tint,192)
+     poly(c,tint,192,x-s0*.86f,y,x+s0*.86f,y,x,y+s0)
+    }
+    "lantern"->{
+     disc(c,x,y,s0*2.8f,tint,35)
+     rectangle(c,x-s0*.43f,y-s0*.76f,x+s0*.43f,y+s0*.78f,tint,188)
+     rectangle(c,x-s0*.23f,y-s0*.5f,x+s0*.23f,y+s0*.53f,secondary,210)
+    }
+    "star"->{
+     for(i in 0..4){
+      val a=i*Math.PI*2/5
+      line(c,x,y,x+cos(a).toFloat()*s0,y+sin(a).toFloat()*s0,tint,1.5f,205)
+     }
+    }
+    else->{ // Defensive only: tests require all 38 catalog IDs to resolve above.
+      line(c,x-s0,y,x+s0,y,tint,1.1f)
+    }
+   }
+  }
+  private fun drawThemeParticle(c:Canvas,p:Particle,tint:Int,renderRadius:Float,glyphs:Pair<String,String>){
+   val glyph=if(p.variant==3)glyphs.second else glyphs.first
+   // Decorations and particles use visualScale consistently, without inflating draw counts.
+   uniqueGlyph(c,glyph,p.x,p.y,renderRadius,tint,p.phase)
+  }
+  /** Scene-specific atmospheric layers are bounded to a few translucent strokes.
+   * They never paint an opaque fullscreen wallpaper over another application. */
+  private fun drawAtmosphere(c:Canvas,w:Float,h:Float){
+   if(!scenery||reducedMotion)return
+   val seconds=elapsed
+   when(theme){
+    "winter-blizzard"->for(i in 0..2){
+     line(c,-20f,h*(.23f+i*.25f),w+20f,h*(.12f+i*.25f),secondary,2f,38)
+    }
+    "winter-frost"->for(i in 0..3)
+     uniqueGlyph(c,"ice-star",w*(.15f+i*.23f),45f,3f,secondary,i.toFloat())
+    "winter-northernlights"->for(i in 0..2){
+     val y=60f+i*35f
+     val tint=if(i%2==0)0xff58f4c4.toInt() else 0xffac80ee.toInt()
+     for(j in 0..10){
+      val x=w*j/10f
+      val xx=w*(j+1)/10f
+      line(c,x,y+sin(seconds*.45f+j*.6f+i)*19f,
+       xx,y+sin(seconds*.45f+(j+1)*.6f+i)*19f,tint,14f,24)
+     }
+    }
+    "spring-rainbow"->for(i in 0..3){
+     paint(listOf(0xffe795ba,0xfff2d684,0xffa0e3b9,0xff83cfff)[i].toInt(),50,3f,Paint.Style.STROKE)
+     c.drawArc(w*.25f,h*.12f+i*5f,w*.74f,h*.56f-i*5f,195f,145f,false,brush)
+     brush.style=Paint.Style.FILL
+    }
+    "summer-goldenhour"->disc(c,w*.85f,h*.13f,38f,0xffffc47b.toInt(),22)
+    "summer-stargaze","ambient-cosmos"->for(i in 0..2){
+     val x=w*(.15f+i*.3f);val y=h*(.06f+i*.07f)
+     line(c,x-15f,y-7f,x+8f,y+4f,secondary,1.3f,55)
+    }
+    "weather-fog","autumn-mist"->for(i in 0..2){
+     val drift=sin(seconds*.26f+i)*15f
+     oval(c,w*(.15f+i*.35f)+drift,h*(.3f+i*.2f),w*.29f,28f,secondary,20)
+    }
+    "weather-thunder"->if(sin(seconds*1.7f)>.985f){
+     line(c,w*.61f,0f,w*.52f,h*.16f,0xffdfe8ff.toInt(),3f,168)
+     line(c,w*.52f,h*.16f,w*.67f,h*.27f,0xffdfe8ff.toInt(),3f,168)
+    }
+    "weather-windy","summer-kite"->for(i in 0..2){
+     val y=h*(.2f+i*.18f)
+     line(c,w*.1f,y+sin(seconds+i)*7f,w*.7f,y-12f,secondary,1f,39)
+    }
+    "halloween-bats"->disc(c,w*.8f,65f,22f,0xffc6bcf3.toInt(),31)
+    "halloween-embers"->disc(c,w*.8f,h*.4f,32f,0xffe2a572.toInt(),25)
+    "newyear-confetti"->for(i in 0..1)uniqueGlyph(c,"sparkler",w*(.3f+i*.38f),h*.2f,8f,secondary,i.toFloat())
+    "ambient-embers"->disc(c,w*.5f,h*.9f,26f,0xfff5a16a.toInt(),24)
+    "ambient-moonlight"->disc(c,w*.85f,h*.14f,29f,0xffc0d7fc.toInt(),28)
+    "advent-1","advent-2","advent-3","advent-4"->{
+     val candleCount=theme.substringAfter("advent-").toIntOrNull()?.coerceIn(1,4)?:1
+     for(i in 0 until candleCount)
+      disc(c,w*.5f+(i-(candleCount-1)/2f)*22f,h*.84f,12f,primary,29)
+    }
+    else->{}
+   }
+  }
+
  private fun drawParticles(c:Canvas,w:Float,h:Float,dt:Float){
   // Mobile compositor budget: no 150-particle + 60 FPS full-screen path.
   val limit=when(quality){"eco"->12;"high"->40;else->24}
@@ -524,26 +818,13 @@ private class WeatherCanvas(service:Service):View(service) {
    if(mode=="embers")h+rng.nextFloat()*9f else rng.nextFloat()*h,
    1f+rng.nextFloat()*3f,
    35f+rng.nextFloat()*82f,rng.nextFloat()*6.28f,rng.nextInt(4)))
+  val glyphs=themeGlyphs()
   for(p in particles){
    if(enabled&&!reducedMotion) {
     val beforeY=p.y
-    val vx=when(mode) {
-     "bats"->(48f+p.speed*.33f)*(if(p.variant%2==0)1f else -1f)
-     "fireflies"->sin(elapsed*1.4f+p.phase)*17f
-     "petals"->wind*32f+sin(elapsed*2.1f+p.phase)*22f
-     "leaves"->wind*45f+sin(elapsed*1.5f+p.phase)*28f
-     else->wind*43f+sin(elapsed+p.phase)*9f
-    }
-    val vy=when(mode) {
-     "rain"->p.speed*3.7f*gravity
-     "fireflies"->sin(elapsed*1.7f+p.phase)*13f
-     "bats"->sin(elapsed*3.5f+p.phase)*22f
-     "stars"->0f
-     "embers"->-p.speed*.65f
-     "petals"->p.speed*.42f*gravity
-     "leaves"->p.speed*.55f*gravity
-     else->p.speed*gravity
-    }
+    val movement=particleMotion(p,dt)
+    val vx=movement.first
+    val vy=movement.second
     p.x+=vx*dt
     p.y+=vy*dt
     // Deposit once on a real collision, not once per frame near the edge.
@@ -553,30 +834,13 @@ private class WeatherCanvas(service:Service):View(service) {
    }
    if(p.x < -10f)p.x=w+5f
    if(p.x>w+10f)p.x=-5f
-   if(p.y>h+8f || (mode=="embers" && p.y < -8f)) {
-    p.x=rng.nextFloat()*w;p.y=if(mode=="embers")h+6f else -rng.nextFloat()*55f
+   val ascending=theme in risingThemes
+   if(p.y>h+8f || (ascending && p.y < -8f)) {
+    p.x=rng.nextFloat()*w;p.y=if(ascending)h+6f else -rng.nextFloat()*55f
    }
    val tint=if(p.variant%2==0)primary else secondary
    val renderRadius=(p.r*scale).coerceIn(.7f,8f)
-   when(mode){
-    "rain"->rectangle(c,p.x,p.y,p.x+max(1.1f,renderRadius*.65f),p.y+11f*scale,tint,179)
-    "petals"->oval(c,p.x,p.y,renderRadius*2f,renderRadius*.95f,tint,190)
-    "leaves"->{
-     oval(c,p.x,p.y,renderRadius*2.2f,renderRadius*1.15f,tint,200)
-     line(c,p.x-renderRadius,p.y,p.x+renderRadius,p.y,tint,1f)
-    }
-    "bats"->drawMotif(c,"bat",p.x,p.y,5f+renderRadius*4f,elapsed,p.variant)
-    "fireflies"->{
-     disc(c,p.x,p.y,renderRadius*2.7f,tint,42)
-     disc(c,p.x,p.y,renderRadius,tint,if(animations&&!reducedMotion) (170+65*sin(elapsed*2+p.phase)).toInt() else 210)
-    }
-    "stars"->{
-     line(c,p.x-renderRadius,p.y,p.x+renderRadius,p.y,tint,1.5f)
-     line(c,p.x,p.y-renderRadius,p.x,p.y+renderRadius,tint,1.5f)
-    }
-    "confetti"->rectangle(c,p.x,p.y,p.x+renderRadius*2f,p.y+renderRadius*2f,tint,210)
-    else->disc(c,p.x,p.y,renderRadius,tint,195)
-   }
+   drawThemeParticle(c,p,tint,renderRadius,glyphs)
   }
  }
  // A single impact conserves deposited mass across its neighboring bins.
@@ -675,6 +939,7 @@ private class WeatherCanvas(service:Service):View(service) {
   elapsed+=dt
   val w=width.toFloat();val h=height.toFloat()
   if(w<=0f||h<=0f)return
+  drawAtmosphere(c,w,h)
   drawDecorations(c,w,h)
   drawParticles(c,w,h,dt)
   settleSnow(c,w,h,dt)

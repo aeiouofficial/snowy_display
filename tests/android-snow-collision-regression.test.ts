@@ -35,10 +35,11 @@ test('snow surface is a smooth continuous path rather than rectangles', () => {
   assert.doesNotMatch(kotlin, /rectangle\(c,i\*14f,h-amount/);
 });
 
-test('distinct particle types use appropriate native movement', () => {
-  assert.match(kotlin, /"bats"->\(48f\+p\.speed\*\.33f\)/);
-  assert.match(kotlin, /"fireflies"->sin\(elapsed\*1\.4f\+p\.phase\)\*17f/);
-  assert.match(kotlin, /"rain"->p\.speed\*3\.7f\*gravity/);
-  assert.match(kotlin, /"stars"->0f/);
-  assert.match(kotlin, /"embers"->-p\.speed\*\.65f/);
+test('distinct seasonal themes now own different native trajectories', () => {
+  assert.match(kotlin, /private fun particleMotion\(p:Particle/);
+  assert.match(kotlin, /"halloween-bats"->\(p\.speed\*\.9f\) to sin\(time\*3\.6f\)\*24f/);
+  assert.match(kotlin, /"summer-fireflies"->sin\(time\*1\.5f\)\*19f to cos\(time\*1\.7f\)\*15f/);
+  assert.match(kotlin, /"summer-showers"->\(breezy\+p\.speed\*\.08f\) to p\.speed\*3\.4f\*gravity/);
+  assert.match(kotlin, /"summer-stargaze"->0f to 0f/);
+  assert.match(kotlin, /"ambient-embers"->sin\(time\*1\.4f\)\*7f to -p\.speed\*\.75f/);
 });

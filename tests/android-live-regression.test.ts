@@ -23,17 +23,18 @@ test('Performance labels match the actual Android rendering frame caps',()=>{
  assert.match(native,/val fps=if\(powerConstrained\)min\(4,baselineFps\) else baselineFps/);
 });
 
-test('Object size affects every native particle family',()=>{
+test('Object size affects every native visual glyph, without inflating the particle budget',()=>{
  assert.match(native,/val renderRadius=\(p\.r\*scale\)\.coerceIn\(\.7f,8f\)/);
- for(const mode of ['rain','petals','leaves','bats','fireflies','stars','confetti']){
-   assert.match(native,new RegExp('"'+mode+'"->[\\s\\S]{0,190}renderRadius'),mode);
- }
- assert.match(native,/else->disc\(c,p\.x,p\.y,renderRadius,tint,195\)/);
+ assert.match(native,/drawThemeParticle\(c,p,tint,renderRadius,glyphs\)/);
+ assert.match(native,/uniqueGlyph\(c,glyph,p\.x,p\.y,renderRadius,tint,p\.phase\)/);
+ assert.match(native,/val limit=when\(quality\)\{"eco"->12;"high"->40;else->24\}/);
 });
+
 
 test('Android bats and fireflies have distinct high-visibility rendering',()=>{
  assert.match(native,/0xffb5a2d2\.toInt\(\),225/);
- assert.match(native,/"bats"->drawMotif\(c,"bat",p\.x,p\.y,5f\+renderRadius\*4f/);
- assert.match(native,/disc\(c,p\.x,p\.y,renderRadius\*2\.7f,tint,42\)/);
+ assert.match(native,/"bat"->drawMotif\(c,"bat",x,y,s0\*2\.5f/);
+ assert.match(native,/"firefly","sun-dust"->\{/);
+ assert.match(native,/disc\(c,x,y,s0\*3\.4f,tint,35\)/);
  assert.match(native,/val maxDraw=\(5\*density\)\.toInt\(\)\.coerceIn\(0,5\)/);
 });
