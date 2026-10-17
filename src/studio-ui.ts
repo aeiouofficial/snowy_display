@@ -116,12 +116,20 @@ export function installStudioUI(patch:Patch): (settings:AppSettings,theme:Weathe
     x.setAttribute('aria-pressed',String(active));
    });
    drawCards();
+   // The category toolbar stays pinned, while only the contents below it
+   // scroll. Reset that inner list so a new filter never opens at the old
+   // bottom-of-panel settings position or shows no visible theme cards.
+   byId('panel-scenes').scrollTop=0;
   });
   filters.appendChild(btn);
  }
  filters.querySelector<HTMLButtonElement>('button')!.classList.add('selected');
  filters.querySelector<HTMLButtonElement>('button')!.setAttribute('aria-pressed','true');
- search.addEventListener('input',()=>{query=search.value.toLowerCase().trim();drawCards();});
+ search.addEventListener('input',()=>{
+  query=search.value.toLowerCase().trim();
+  drawCards();
+  byId('panel-scenes').scrollTop=0;
+ });
  function toggle(id:string,key:keyof AppSettings):void{
   (byId(id) as HTMLInputElement).addEventListener('change',event=>{
    patch({[key]:(event.target as HTMLInputElement).checked} as Partial<AppSettings>);

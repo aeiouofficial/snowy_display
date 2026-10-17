@@ -26,7 +26,7 @@ test('Performance labels match the actual Android rendering frame caps',()=>{
 test('Object size affects every native visual glyph, without inflating the particle budget',()=>{
  assert.match(native,/val renderRadius=\(p\.r\*scale\)\.coerceIn\(\.7f,8f\)/);
  assert.match(native,/drawThemeParticle\(c,p,tint,renderRadius,glyphs\)/);
- assert.match(native,/uniqueGlyph\(c,glyph,p\.x,p\.y,renderRadius,tint,p\.phase\)/);
+ assert.match(native,/uniqueGlyph\(c,glyph,p\.x,p\.y,formSize,tint,p\.phase\)/);
  assert.match(native,/val limit=when\(quality\)\{"eco"->12;"high"->40;else->24\}/);
 });
 

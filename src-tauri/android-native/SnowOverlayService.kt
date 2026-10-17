@@ -741,8 +741,34 @@ private class WeatherCanvas(service:Service):View(service) {
   }
   private fun drawThemeParticle(c:Canvas,p:Particle,tint:Int,renderRadius:Float,glyphs:Pair<String,String>){
    val glyph=if(p.variant==3)glyphs.second else glyphs.first
-   // Decorations and particles use visualScale consistently, without inflating draw counts.
-   uniqueGlyph(c,glyph,p.x,p.y,renderRadius,tint,p.phase)
+   // Device QA (1080px Redmi): unscaled organic silhouettes read as dots.
+   // The visualScale setting is already included in renderRadius; keep its
+   // multiplicative effect without raising particle count, draw rate or density.
+   val formSize=when(glyph){
+    "petal","maple"->(renderRadius*2.6f).coerceIn(1f,13f)
+    "butterfly","bee","bird"->(renderRadius*2.2f).coerceIn(1f,12f)
+    "seed","grain","needle"->(renderRadius*1.8f).coerceIn(.8f,11f)
+    "fog","leaf-fog","gust","ribbon"->(renderRadius*2.2f).coerceIn(.8f,13f)
+    "firefly","sun-dust","flame","wisp"->(renderRadius*1.7f).coerceIn(.8f,13f)
+    "snow-streak","rain","downpour","lightning"->(renderRadius*1.4f).coerceIn(.8f,11f)
+    "lantern","gift","heart","egg"->(renderRadius*1.9f).coerceIn(.8f,13f)
+    "galaxy","meteor","sparkler"->(renderRadius*1.45f).coerceIn(.8f,11f)
+    else->renderRadius
+   }
+   // Organic tumbling/flapping has a real silhouette rotation, not circles
+   // oscillating along a generic snowfall trajectory.
+   val rotation=if(animations&&!reducedMotion)when(glyph){
+    "petal"->sin(elapsed*1.6f+p.phase)*62f
+    "maple","needle"->sin(elapsed*1.2f+p.phase)*83f
+    "butterfly","bee"->sin(elapsed*3.2f+p.phase)*13f
+    "confetti"->elapsed*90f+p.phase*35f
+    "ribbon","seed","grain"->sin(elapsed*.8f+p.phase)*38f
+    else->0f
+   } else 0f
+   c.save()
+   if(rotation!=0f)c.rotate(rotation,p.x,p.y)
+   uniqueGlyph(c,glyph,p.x,p.y,formSize,tint,p.phase)
+   c.restore()
   }
   /** Scene-specific atmospheric layers are bounded to a few translucent strokes.
    * They never paint an opaque fullscreen wallpaper over another application. */
