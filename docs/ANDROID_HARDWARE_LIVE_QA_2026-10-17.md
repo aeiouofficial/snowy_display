@@ -59,3 +59,16 @@ Evidence: `.tmp/snowy_live_overlay_20261017/report.json`, `.tmp/snowy_live_overl
 - Any claim of window-aware accumulation in arbitrary Android applications remains unsupported.
 
 Keep all temporary files in the S: project workspace. Do not open foreground terminal windows or merge into `main` without approval.
+
+
+## Hardware follow-up and compact layout repair — 2026-10-17 20:22–20:27
+
+- A fresh focus-guarded real-device retest was completed **against the installed new APK**, verified by on-device SHA-256 `30fd42256d629ca925ab922817685920fc3bdda9b65e20f54301e5a334db2e9e`.
+- 8/8 screen interaction checks passed. Mean pixel differences during a theme-catalog swipe: fixed header **0.000**, category/search toolbar **0.155**, bottom navigation **0.000**, scrollable catalog **19.075**. The original MIUI launcher was restored. Battery 79%, temperature 30.3°C before/after.
+- Physics and System live screenshots confirmed corrected Android wording and 8/12/20 FPS labels. Evidence `.tmp/snowy_live_hardware_after_20261017/report.json` plus PNG screenshots.
+- A newly observed actual layout defect persisted in the System panel: explanatory text was too close to the overlay action buttons; a pale scroll thumb also distracted from the dark layout.
+- `src/style.css` now gives those actions their own responsive two-column grid, a clear 14px separation from the next note, compact range-row spacing and an invisible scrollbar while preserving independent panel scrolling.
+- `tests/android-live-layout-20261017.test.ts` verifies these invariants. `npm run check`: **119/119 PASS**; `npm run build:web`: PASS. A separate Android-viewport automated browser test measured **14.0 CSS pixels** clearance, scrollbar width `none`, active vertical scroll `auto`, zero page exceptions.
+- Screenshot and geometry evidence: `.tmp/snowy_android_layout_regression_20261017/system_layout.png` and `snowy_android_layout_regression_20261017_result.json`.
+
+**Gate:** The CSS change is web-tested and must be packaged into a newly signed APK and rechecked on physical hardware before declaring the final UI spacing fixed on the handset. Preserve the existing overlay settings and use an in-place ADB update only.

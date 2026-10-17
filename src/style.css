@@ -410,3 +410,33 @@ html.android-ui .studio-tabs button{
 }
 html.android-ui .tab-symbol{height:18px;width:20px}
 html.android-ui .tab-symbol svg{height:17px;width:17px}
+
+
+/* Android hardware QA 2026-10-17: compact controls, separated actions, hidden scroll track.
+   Keep the inner tab independently scrollable and maintain fixed navigation. */
+html.android-ui .studio-panel{
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+html.android-ui .studio-panel::-webkit-scrollbar{
+  display:none;width:0;height:0;
+}
+html.android-ui .studio-panel .fine-row,
+html.android-ui .studio-panel .control-row{
+  padding:8px 0;gap:4px;
+}
+html.android-ui .studio-panel .preset-chip{
+  padding:7px 6px;
+}
+html.android-ui .android-overlay-controls .actions{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;margin:12px 0 14px;
+}
+html.android-ui .android-overlay-controls .actions .secondary{
+  min-width:0;margin:0;padding:9px 7px;
+  min-height:38px;line-height:1.25;
+}
+html.android-ui .android-overlay-controls .actions + .block-note{
+  display:block;position:static;clear:both;
+  margin:0;padding-top:3px;line-height:1.5;
+}
