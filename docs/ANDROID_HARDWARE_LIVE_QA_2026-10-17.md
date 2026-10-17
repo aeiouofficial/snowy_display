@@ -72,3 +72,15 @@ Keep all temporary files in the S: project workspace. Do not open foreground ter
 - Screenshot and geometry evidence: `.tmp/snowy_android_layout_regression_20261017/system_layout.png` and `snowy_android_layout_regression_20261017_result.json`.
 
 **Gate:** The CSS change is web-tested and must be packaged into a newly signed APK and rechecked on physical hardware before declaring the final UI spacing fixed on the handset. Preserve the existing overlay settings and use an in-place ADB update only.
+
+
+## Final compact APK hardware verification — 2026-10-17 20:35
+
+- Local and GitHub feature branch contain the compact layout at commit `304d263212213850fa90810831de393c06ab9f0c`.
+- The final compact UI build was signed with the existing developer certificate and installed via `adb install --no-incremental -r` (Success), preserving app data.
+- Android device-side SHA-256 matches the signed file exactly: `b84a2140a6208a704a6e670428784f933664461a31f27885b98c3524a1ebb9d6`.
+- Physical Redmi screenshot of the actual System tab after installation: `.tmp/snowy_live_layout_v2_system.png`. Both overlay action buttons now form equal-width columns and the explanation appears below them with visible spacing. The settings tab displays the correct Android FPS caps, the pinned header and bottom navigation remain in place.
+- The slim vertical white handle at the far left still exists in some phone screenshots but also appears on the MIUI launcher while Snowy Display is not in the foreground. It should not be attributed to Snowy Display's WebView scrollbar without additional platform evidence.
+- After the capture, the MIUI launcher was restored. No user data reset.
+- New signed APK: `S:\snowy_display\.buildndroid-install\snowy-display-20261017-layout-v2-signed.apk`. Evidence `.tmp/snowy_live_layout_v2_gradle_result.json`, `.tmp/snowy_live_layout_v2_sign_result.json`, `.tmp/snowy_live_layout_v2_install_result.json`.
+- The viewport browser geometry assertion and the physical screenshot both confirm the action/text separation. No long-running stress test or editorial approval of every theme has occurred; do not merge into `main` yet.
