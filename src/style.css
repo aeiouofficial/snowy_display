@@ -212,3 +212,231 @@ footer{font-size:10px;display:flex;justify-content:space-between;gap:12px;
 @media(prefers-reduced-motion:reduce){
  *,*:before,*:after{transition:none!important;animation:none!important;scroll-behavior:auto!important}
 }
+
+/* Android control layout — one immutable shell, one independently scrollable
+   settings viewport. No sticky/fixed preview inside a scrolling panel. */
+html.android-ui, html.android-ui body, html.android-ui #app{
+  width:100%;height:100%;height:100dvh;overflow:hidden!important;
+  overscroll-behavior:none;
+}
+html.android-ui .app-shell{
+  position:fixed;inset:0;height:100dvh;min-height:0;width:100%;
+  max-width:none;overflow:hidden;display:grid;
+  grid-template-rows:auto auto minmax(0,1fr) auto;
+  gap:0;padding:max(28px,env(safe-area-inset-top,0px)) 0 max(17px,env(safe-area-inset-bottom,0px));
+  background:#090f1a;
+}
+html.android-ui .header{
+  grid-row:1;min-height:58px;margin:0;padding:9px 13px;
+  display:flex;position:relative;z-index:10;
+  background:#101c2b;border-bottom:1px solid #283b4d;
+  box-shadow:0 2px 10px rgba(0,0,0,.35);
+}
+html.android-ui .brandmark{width:34px;height:34px;font-size:20px}
+html.android-ui .brandcopy h1{font-size:16px}
+html.android-ui .brandcopy p{font-size:9px}
+html.android-ui .live-status{display:none}
+html.android-ui .android-overlay-quick{
+  margin-left:auto;padding:8px 9px;min-width:0;flex:0 0 auto;
+  font-weight:700;font-size:10px;border:1px solid #4e9c96;
+  border-radius:8px;color:#d6f4eb;background:#23423d;
+}
+html.android-ui .android-overlay-quick:not([hidden]){display:block}
+html.android-ui .android-overlay-quick[aria-pressed="true"]{border-color:#a5656b;background:#53343a}
+html.android-ui .visual{
+  grid-row:2;min-height:0;width:100%;margin:0;border-radius:0;
+  box-shadow:none;border:0;border-bottom:1px solid #283b4d;overflow:hidden;
+}
+html.android-ui .visual .preview-head{
+  min-height:29px;height:30px;padding:0 13px;
+}
+html.android-ui .visual .preview-hint{display:none}
+html.android-ui .visual .scene{height:clamp(94px,14dvh,133px)}
+html.android-ui .visual .scene-caption{padding:6px 12px}
+html.android-ui .visual .scene-caption h2{font-size:12px;margin:2px 0}
+html.android-ui .visual .scene-caption p{font-size:9px;max-width:250px}
+html.android-ui .visual #mobile-preview-toggle{
+  margin-left:auto;padding:4px 9px;border:1px solid #395b75;
+  border-radius:7px;background:#1e3449;color:#c2e6fa;
+  font-size:10px;font-weight:650;
+}
+html.android-ui .visual.preview-collapsed .scene,
+html.android-ui .visual.preview-collapsed .scene-caption{display:none!important}
+html.android-ui .fake-window{display:none!important}
+html.android-ui .studio-panel{
+  grid-row:3;min-width:0;min-height:0;max-height:none;
+  height:auto;overflow-y:auto;overflow-x:hidden;order:unset;
+  margin:0;padding:12px 13px max(19px,env(safe-area-inset-bottom,0px));
+  touch-action:pan-y;overscroll-behavior-y:contain;
+  -webkit-overflow-scrolling:touch;scroll-behavior:auto;
+  scrollbar-width:thin;scrollbar-gutter:stable;
+}
+html.android-ui .studio-panel[hidden]{display:none!important}
+html.android-ui .studio-panel .theme-gallery{max-height:none;overflow:visible}
+html.android-ui .studio-panel .category-filters{
+  flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;
+}
+html.android-ui .studio-panel .category-filters::-webkit-scrollbar{display:none}
+html.android-ui .studio-tabs{
+  grid-row:4;min-height:68px;max-height:78px;
+  width:100%;margin:0;padding:4px 7px max(7px,env(safe-area-inset-bottom,0px));
+  position:relative;inset:auto;z-index:12;order:unset;
+  border:0;border-top:1px solid #304459;border-radius:0;
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;
+  background:#101d2d;box-shadow:0 -5px 18px rgba(0,0,0,.34);
+}
+html.android-ui .studio-tabs button{
+  min-height:50px;min-width:0;padding:5px 2px 7px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;position:relative;background:transparent;color:#a8bcd0;
+  font-size:10px;font-weight:650;white-space:nowrap;
+}
+html.android-ui .studio-tabs button[aria-selected="true"]{
+  background:#1c3346;color:#e1f3ff;box-shadow:none;
+}
+html.android-ui .studio-tabs button[aria-selected="true"]::after{
+  content:"";position:absolute;left:25%;width:50%;bottom:1px;
+  height:2px;background:var(--accent);border-radius:2px;
+}
+html.android-ui .tab-symbol{height:22px;width:23px;display:grid;place-items:center;line-height:1}
+html.android-ui .tab-symbol svg{display:block;width:21px;height:21px;stroke-width:1.7}
+html.android-ui .scene-card{min-width:0}
+html.android-ui .panel-heading{padding-top:1px}
+html.android-ui .environment-field{display:none}
+html.android-ui .android-overlay-controls #android-overlay-status{
+  margin:10px 0;color:#a4dfca;font-size:12px;
+}
+html.android-ui footer{display:none}
+@media(max-width:375px){
+ html.android-ui .header{padding-inline:10px}
+ html.android-ui .brandcopy h1{font-size:15px}
+ html.android-ui .studio-panel{padding-inline:10px}
+ html.android-ui .studio-tabs button{font-size:9.5px}
+}
+
+/* A vertical settings scroller must not steal horizontal thumb gestures.
+   Native range controls handle their own pointer stream, even on MIUI WebView. */
+html.android-ui .studio-panel input[type=range]{
+  touch-action:none;min-height:34px;cursor:ew-resize;
+}
+
+
+/* October 16: compact Android scene browser with a genuinely pinned toolbar.
+   The document, header, preview, categories and search never receive scrolling.
+   Only the active tab panel can scroll. Do not use window/dialog overlays. */
+html.android-ui .app-shell.scenes-selected{
+  grid-template-rows:auto auto auto minmax(0,1fr) auto;
+}
+html.android-ui .mobile-scene-toolbar{
+  grid-row:3;min-width:0;min-height:0;
+  padding:6px 11px 7px;background:#101a29;
+  border-bottom:1px solid #263b51;overflow:hidden;
+}
+html.android-ui .mobile-scene-toolbar[hidden]{display:none!important}
+html.android-ui .app-shell.scenes-selected .studio-panel{grid-row:4}
+html.android-ui .app-shell.scenes-selected .studio-tabs{grid-row:5}
+html.android-ui .mobile-scene-toolbar .panel-heading{
+  padding:0 1px 3px;
+}
+html.android-ui .mobile-scene-toolbar .panel-heading .eyebrow,
+html.android-ui .mobile-scene-toolbar .panel-heading > p{display:none}
+html.android-ui .mobile-scene-toolbar .heading-row{margin:0 0 4px;gap:8px}
+html.android-ui .mobile-scene-toolbar .heading-row h2{font-size:14px;line-height:1.2}
+html.android-ui .mobile-scene-toolbar .content-count{
+  padding:3px 6px;font-size:9px;
+}
+html.android-ui .mobile-scene-toolbar .category-filters{
+  padding:2px 0 5px;gap:5px;flex-wrap:nowrap;
+  overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x proximity;overscroll-behavior-x:contain;
+  scrollbar-width:none;
+}
+html.android-ui .mobile-scene-toolbar .category-filters::-webkit-scrollbar{display:none}
+html.android-ui .mobile-scene-toolbar .category-chip{
+  scroll-snap-align:start;border-radius:6px;
+  padding:5px 9px;min-height:28px;font-size:10px;
+}
+html.android-ui .mobile-scene-toolbar .search-scenes{
+  height:31px;padding:0 9px;margin:1px 0 0;
+  gap:6px;border-radius:7px;
+}
+html.android-ui .mobile-scene-toolbar .search-scenes span{font-size:16px}
+html.android-ui .mobile-scene-toolbar .search-scenes input{font-size:11px}
+html.android-ui .header{
+  min-height:47px;padding:5px 10px;
+}
+html.android-ui .brandmark{height:29px;width:29px;font-size:17px;border-radius:9px}
+html.android-ui .brandcopy h1{font-size:14px;margin-bottom:0}
+html.android-ui .brandcopy p{font-size:7.5px;letter-spacing:1.1px}
+html.android-ui .android-overlay-quick{padding:7px 9px;font-size:10px}
+html.android-ui .visual .preview-head{height:23px;min-height:23px;padding:0 11px;font-size:9px}
+html.android-ui .visual .scene{height:clamp(54px,9dvh,76px)}
+html.android-ui .visual .scene-caption{padding:4px 11px;min-height:33px}
+html.android-ui .visual .scene-caption h2{font-size:11px;margin:0}
+html.android-ui .visual .scene-caption p{display:none}
+html.android-ui .visual #scene-category{font-size:8px;letter-spacing:.7px}
+html.android-ui .visual .scene-running{font-size:8px;padding:4px 6px}
+html.android-ui .visual #mobile-preview-toggle{font-size:9px;padding:3px 7px}
+html.android-ui .studio-panel{
+  padding:8px 10px 14px;scrollbar-gutter:auto;
+}
+html.android-ui .studio-panel .panel-heading{padding:2px 0 7px}
+html.android-ui .studio-panel .eyebrow{font-size:9px}
+html.android-ui .studio-panel .heading-row{margin:2px 0 4px}
+html.android-ui .studio-panel .heading-row h2{font-size:16px}
+html.android-ui .studio-panel .panel-heading p{font-size:10px;line-height:1.35}
+html.android-ui .studio-panel .theme-gallery{
+  gap:6px;margin:0 0 11px;padding:1px 0 5px;
+}
+html.android-ui .scene-card{
+  min-height:51px;padding:5px 6px;gap:7px;border-radius:8px;
+}
+html.android-ui .scene-art{
+  height:35px;width:35px;font-size:17px;border-radius:7px;
+}
+html.android-ui .scene-card-copy strong{font-size:10px;line-height:1.15}
+html.android-ui .scene-card-copy small{font-size:9px}
+html.android-ui .studio-panel .settings-block{
+  padding:9px 10px;margin-bottom:9px;
+}
+html.android-ui .studio-panel .settings-block h3{font-size:12px}
+html.android-ui .studio-tabs{
+  min-height:53px;max-height:61px;
+  padding:2px 5px max(3px,env(safe-area-inset-bottom,0px));
+}
+html.android-ui .studio-tabs button{
+  min-height:43px;padding:3px 2px 5px;gap:2px;
+  font-size:9px;
+}
+html.android-ui .tab-symbol{height:18px;width:20px}
+html.android-ui .tab-symbol svg{height:17px;width:17px}
+
+
+/* Android hardware QA 2026-10-17: compact controls, separated actions, hidden scroll track.
+   Keep the inner tab independently scrollable and maintain fixed navigation. */
+html.android-ui .studio-panel{
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+html.android-ui .studio-panel::-webkit-scrollbar{
+  display:none;width:0;height:0;
+}
+html.android-ui .studio-panel .fine-row,
+html.android-ui .studio-panel .control-row{
+  padding:8px 0;gap:4px;
+}
+html.android-ui .studio-panel .preset-chip{
+  padding:7px 6px;
+}
+html.android-ui .android-overlay-controls .actions{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;margin:12px 0 14px;
+}
+html.android-ui .android-overlay-controls .actions .secondary{
+  min-width:0;margin:0;padding:9px 7px;
+  min-height:38px;line-height:1.25;
+}
+html.android-ui .android-overlay-controls .actions + .block-note{
+  display:block;position:static;clear:both;
+  margin:0;padding-top:3px;line-height:1.5;
+}

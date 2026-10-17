@@ -7,6 +7,7 @@ import { activeTheme, DEFAULT_APP_SETTINGS } from './settings.ts';
 import { INTERACTION_TOOLS, normalizeTool } from './interactions.ts';
 import { installStudioUI } from './studio-ui.ts';
 import './style.css';
+if (/Android/i.test(navigator.userAgent)) document.documentElement.classList.add('android-ui');
 
 const target = document.querySelector<HTMLDivElement>('#app');
 if (!target) throw new Error('App root missing');
@@ -14,6 +15,7 @@ target.innerHTML = `<main class="app-shell">
 <header class="header">
  <div class="brandmark" aria-hidden="true">✳</div>
  <div class="brandcopy"><h1>Snowy Display</h1><p>ATMOSPHERE STUDIO</p></div>
+ <button type="button" id="android-overlay-quick" class="android-overlay-quick" hidden>Start overlay</button>
  <div class="live-status"><span class="live-dot"></span><span id="runtime-status">LIVE</span></div>
 </header>
 <section class="visual" aria-label="Animated weather preview">
@@ -68,7 +70,8 @@ target.innerHTML = `<main class="app-shell">
 <section id="panel-activity" class="studio-panel" role="tabpanel" aria-labelledby="tab-activity" hidden>
  <div class="panel-heading"><span class="eyebrow">REACTIVE DESKTOP</span>
   <div class="heading-row"><h2>Activities & spells</h2><span class="content-count">7 tools</span></div>
-  <p>Footprints, snow displacement and magic gestures interact with real surfaces.</p></div>
+  <p>Footprints, snow displacement and magic gestures interact with real surfaces.</p>
+  <p id="android-interaction-note" class="block-note" hidden>Android: Touch interactions work in the live preview. The system-wide overlay remains click-through; Android does not expose other apps' private window surfaces or taps.</p></div>
  <div class="settings-block"><h3>Pointer tools</h3>
   <div id="interaction-tools" class="interaction-grid" role="group" aria-label="Select an interactive tool"></div>
   <div id="interaction-description" class="interaction-description" aria-live="polite"></div>
@@ -82,6 +85,16 @@ target.innerHTML = `<main class="app-shell">
  </div>
 </section>
 <section id="panel-system" class="studio-panel" role="tabpanel" aria-labelledby="tab-system" hidden>
+ <div id="android-overlay-controls" class="settings-block android-overlay-controls" hidden>
+  <h3>Weather across apps</h3>
+  <p class="block-note">One approval for <strong>Snowy Display</strong> is enough. Weather then appears over other compatible apps automatically — do not approve the other apps in Android's list.</p>
+  <div id="android-overlay-status" role="status" aria-live="polite">Checking overlay status…</div>
+  <div class="actions">
+    <button id="android-overlay-start" type="button" class="secondary">Allow Snowy Display once</button>
+    <button id="android-overlay-stop" type="button" class="secondary danger">Stop overlay</button>
+  </div>
+  <p class="block-note">Android 11+ shows an application list when granting permission. Select only <strong>Snowy Display</strong>, switch it on and return here; the weather starts automatically. Android restricts reading other apps' windows, so mobile accumulation stays at the bottom of the display.</p>
+ </div>
  <div class="panel-heading"><span class="eyebrow">DISPLAY & PERFORMANCE</span>
   <div class="heading-row"><h2>System settings</h2><span class="content-count">ALL MONITORS</span></div>
   <p>One shared desktop simulation, performance controls and accessible motion options.</p></div>
@@ -136,6 +149,230 @@ for (const tool of INTERACTION_TOOLS) {
   });
   interactionButtons.appendChild(button);
 }
+const isAndroid = document.documentElement.classList.contains('android-ui');
+if(isAndroid){
+  // Platform-specific descriptions must match Android's click-through overlay.
+  const copy=(selector:string,value:string):void=>{
+    const element=document.querySelector<HTMLElement>(selector);
+    if(element)element.textContent=value;
+  };
+  copy('#panel-physics .panel-heading > p',
+    'Android snow settles at the bottom of the display. Wind, gravity and settling affect snow scenes; other themes use their own particles.');
+  copy('#panel-physics .info-strip',
+    'Android cannot inspect other apps’ window edges. There is no window-aware accumulation or sliding on other apps.');
+  copy('#panel-activity .block-note',
+    'On Android the snowplow works on bottom-edge accumulated snow. The other interaction tools operate in the live preview only.');
+  copy('#panel-activity .switch-line small',
+    'Android: bottom-edge snow only; does not intercept other apps’ taps');
+  copy('#panel-system .heading-row .content-count','ANDROID SCREEN');
+  copy('#panel-system .panel-heading > p',
+    'One click-through overlay across compatible Android apps. Frame rate is capped to protect battery life.');
+}
+const androidControls = document.querySelector<HTMLElement>('#android-overlay-controls')!;
+const overlayQuick = document.querySelector<HTMLButtonElement>('#android-overlay-quick')!;
+const overlayStatus = document.querySelector<HTMLElement>('#android-overlay-status')!;
+const overlayStartButton = document.querySelector<HTMLButtonElement>('#android-overlay-start')!;
+const overlayStopButton = document.querySelector<HTMLButtonElement>('#android-overlay-stop')!;
+const OVERLAY_PENDING_KEY = 'snowy-display:pending-overlay-start';
+let overlayRunning = false;
+let overlayActionBusy = false;
+let pendingOverlayStart = false;
+try { pendingOverlayStart = sessionStorage.getItem(OVERLAY_PENDING_KEY) === '1'; } catch { /* Private browser settings */ }
+type OverlayStatus = { granted:boolean; running:boolean; powerSuspended?:boolean; permissionRequested?:boolean };
+function markPendingOverlayStart(pending:boolean):void {
+ pendingOverlayStart = pending;
+ try {
+  if(pending) sessionStorage.setItem(OVERLAY_PENDING_KEY,'1');
+  else sessionStorage.removeItem(OVERLAY_PENDING_KEY);
+ } catch { /* Session storage can be disabled; in-memory state still works. */ }
+}
+async function androidOverlayAction(action:'status'|'permission'|'start'|'stop'|'update'|'clear'):Promise<OverlayStatus> {
+ const {invoke}=await import('@tauri-apps/api/core');
+ const active=activeTheme(config);
+ return invoke<OverlayStatus>('control',{
+  action,settings:{...config,themeId:active.id,
+    particleType:active.particle,primaryColor:active.color,secondaryColor:active.secondary,
+    themeIntensity:active.intensity,accumulating:active.accumulating}
+ });
+}
+function displayOverlayStatus(value:OverlayStatus):void {
+ overlayRunning=value.running;
+ overlayStatus.textContent=!value.granted
+  ? 'One approval for Snowy Display. Android may show a list: select only Snowy Display, allow it, then return. Weather will appear over other apps automatically.'
+  : value.running && value.powerSuspended
+   ? 'Weather paused to protect the battery or while the screen is off.'
+   : value.running
+    ? 'Weather is running across compatible apps. No per-app approvals are required.'
+    : 'Snowy Display is approved for other apps. Start the weather whenever you want.';
+ overlayQuick.textContent=value.running?'Stop weather':value.granted?'Start weather':'Allow once';
+ overlayQuick.setAttribute('aria-pressed',String(value.running));
+ overlayStartButton.textContent=value.granted?'Start weather':'Allow Snowy Display once';
+ overlayStartButton.disabled=value.running;
+ overlayStopButton.disabled=!value.running && !pendingOverlayStart;
+}
+async function refreshOverlayStatus():Promise<void>{
+ if(!isAndroid || overlayActionBusy)return;
+ try {
+  const state=await androidOverlayAction('status');
+  displayOverlayStatus(state);
+  if(state.granted && pendingOverlayStart && !state.running) {
+   await startAndroidOverlay();
+  } else if(state.granted && pendingOverlayStart && state.running) {
+   markPendingOverlayStart(false);
+  }
+ }catch(err){overlayStatus.textContent='Overlay status unavailable: '+String(err);}
+}
+// Serialize native overlay updates: otherwise a slow stale update can overwrite
+// a newly selected theme or settings value in the Android service.
+let nativeUpdateRevision=0;
+let nativeUpdateInFlight=false;
+let nativeUpdateTimer:ReturnType<typeof setTimeout>|null=null;
+async function flushNativeOverlayUpdates():Promise<void>{
+ // The native service may already be active even while JS still has the
+ // previous asynchronous start() response (running=false). Never suppress
+ // scene/slider changes on that stale client-side flag.
+ if(nativeUpdateInFlight||!isAndroid)return;
+ nativeUpdateInFlight=true;
+ try {
+  while(isAndroid){
+   const revision=nativeUpdateRevision;
+   try {
+    const result=await androidOverlayAction('update');
+    displayOverlayStatus(result);
+   }catch(err){
+    console.warn('[snowy] Android overlay settings update failed',err);
+    overlayStatus.textContent='Native weather update failed. Use Start weather to retry.';
+    break;
+   }
+   if(revision===nativeUpdateRevision)break;
+  }
+ }finally{
+  nativeUpdateInFlight=false;
+ }
+}
+function scheduleOverlayUpdate():void{
+ if(!isAndroid)return;
+ nativeUpdateRevision++;
+ // Changes made during a slider drag should coalesce into one native IPC
+ // update, not dozens of Android service restarts/notifications per second.
+ if(nativeUpdateTimer!==null)clearTimeout(nativeUpdateTimer);
+ nativeUpdateTimer=setTimeout(()=>{
+  nativeUpdateTimer=null;
+  void flushNativeOverlayUpdates();
+ },180);
+}
+async function startAndroidOverlay():Promise<void>{
+ if(overlayActionBusy)return;
+ overlayActionBusy=true;
+ overlayStartButton.disabled=true;
+ try {
+  const state=await androidOverlayAction('status');
+  if(!state.granted){
+   markPendingOverlayStart(true);
+   overlayStatus.textContent='Grant Snowy Display only (one approval), then return here. The overlay will start automatically.';
+   const result=await androidOverlayAction('permission');
+   displayOverlayStatus(result);
+   return;
+  }
+  markPendingOverlayStart(false);
+  if(!state.running) {
+   const started=await androidOverlayAction('start');
+   if(started.running) {
+     displayOverlayStatus(started);
+     scheduleOverlayUpdate();
+   }
+   else {
+    overlayStatus.textContent='Permission approved. Starting weather across other apps…';
+    overlayQuick.textContent='Starting…';
+   }
+  } else displayOverlayStatus(state);
+  window.setTimeout(()=>{void refreshOverlayStatus()},350);
+ // startForegroundService returns before onStartCommand and addView finish.
+ // One extra delayed read handles the Android/MIUI asynchronous start gate.
+ window.setTimeout(()=>{void refreshOverlayStatus()},1100);
+ }catch(err){overlayStatus.textContent='Could not start weather: '+String(err);}
+ finally {
+  overlayActionBusy=false;
+  overlayStartButton.disabled=overlayRunning;
+ }
+}
+async function stopAndroidOverlay():Promise<void>{
+ if(overlayActionBusy)return;
+ overlayActionBusy=true;
+ markPendingOverlayStart(false);
+ try{displayOverlayStatus(await androidOverlayAction('stop'));}
+ catch(err){overlayStatus.textContent='Overlay stop failed: '+String(err);}
+ finally{
+   nativeUpdateRevision++;
+   overlayActionBusy=false;
+ }
+ window.setTimeout(()=>{void refreshOverlayStatus()},250);
+}
+if(isAndroid){
+ // Mobile: header and bottom navigation are siblings of the scrollable panel.
+ // Never put navigation inside a panel or scroll the entire WebView.
+ const tabs = document.querySelector<HTMLElement>('#studio-tabs')!;
+ // Stable Android WebView viewport. The surrounding document must never scroll
+ // or pan beneath the OS status bar; each active tab owns the only vertical scroll.
+ document.documentElement.classList.add('mobile-shell-ready');
+ const scenesPanel = document.querySelector<HTMLElement>('#panel-scenes')!;
+ const shell = document.querySelector<HTMLElement>('.app-shell')!;
+ shell.insertBefore(tabs,shell.querySelector('footer'));
+ const visual=shell.querySelector<HTMLElement>('.visual')!;
+ // Preview is a sibling of the scrolling panels, so it remains visible
+ // while Physics, Activity, System and Scenes scroll independently.
+ shell.insertBefore(visual,scenesPanel);
+ // The scene filters and search are controls, not scrolling scene content.
+ // Keep the complete scene toolbar in its own immutable grid row.
+ const sceneToolbar=document.createElement('section');
+ sceneToolbar.id='mobile-scene-toolbar';
+ sceneToolbar.className='mobile-scene-toolbar';
+ sceneToolbar.setAttribute('aria-label','Scene browser controls');
+ for(const selector of ['.panel-heading','#category-filters','.search-scenes']){
+   const element=scenesPanel.querySelector<HTMLElement>(selector);
+   if(!element)throw new Error('Missing scene toolbar section: '+selector);
+   sceneToolbar.appendChild(element);
+ }
+ shell.insertBefore(sceneToolbar,scenesPanel);
+ shell.classList.add('scenes-selected');
+ const previewButton=document.createElement('button');
+ previewButton.id='mobile-preview-toggle';
+ previewButton.type='button';
+ previewButton.setAttribute('aria-controls','scene');
+ const previewKey='snowy-display:mobile-preview-collapsed';
+ function collapsePreview(collapsed:boolean):void{
+  visual.classList.toggle('preview-collapsed',collapsed);
+  previewButton.textContent=collapsed?'Show live preview':'Hide preview';
+  previewButton.setAttribute('aria-expanded',String(!collapsed));
+  try{localStorage.setItem(previewKey,String(collapsed));}catch{/* Storage may be unavailable */}
+ }
+ visual.querySelector('.preview-head')!.append(previewButton);
+ let initialCollapsed=false;
+ try{initialCollapsed=localStorage.getItem(previewKey)==='true';}catch{/* Use default expanded */}
+ collapsePreview(initialCollapsed);
+ previewButton.addEventListener('click',()=>{
+   collapsePreview(!visual.classList.contains('preview-collapsed'));
+   window.dispatchEvent(new Event('snowy:preview-refresh'));
+  });
+ androidControls.hidden=false;overlayQuick.hidden=false;
+ document.querySelector<HTMLElement>('#android-interaction-note')!.hidden=false;
+ const systemPanel=document.querySelector<HTMLElement>('#panel-system')!;
+ systemPanel.querySelector<HTMLElement>('.panel-heading > p')!.textContent=
+   'One transparent, click-through weather overlay across compatible Android apps. Only Snowy Display needs the overlay permission.';
+ const sysRows=systemPanel.querySelectorAll<HTMLElement>('.system-row');
+ if(sysRows.length>=2){
+  sysRows[0].querySelector('span')!.textContent='Display topology';
+  sysRows[0].querySelector('strong')!.textContent='Phone display';
+  sysRows[1].querySelector('span')!.textContent='Touch handling';
+  sysRows[1].querySelector('strong')!.textContent='Passes through';
+ }
+ overlayStartButton.addEventListener('click',()=>{void startAndroidOverlay()});
+ overlayStopButton.addEventListener('click',()=>{void stopAndroidOverlay()});
+ overlayQuick.addEventListener('click',()=>{void (overlayRunning?stopAndroidOverlay():startAndroidOverlay())});
+ window.addEventListener('focus',()=>{void refreshOverlayStatus()});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshOverlayStatus()});
+ void refreshOverlayStatus();
+}
 const scene = document.querySelector<HTMLElement>('#scene')!;
 const canvas = document.querySelector<HTMLCanvasElement>('#preview')!;
 const engine = new SnowEngine(420, 300);
@@ -179,17 +416,30 @@ for (const item of specs) {
   const row = document.createElement('label'); row.className = 'control-row';
   row.innerHTML = `<span class="control-title">${item.label}</span><output for="${item.key}"></output><input type="range" id="${item.key}" min="${item.min}" max="${item.max}" step="${item.step}" />`;
   sliders.appendChild(row);
-  row.querySelector<HTMLInputElement>('input')!.addEventListener('input', event => {
+  const input=row.querySelector<HTMLInputElement>('input')!;
+  input.addEventListener('input', event => {
     config = { ...config, [item.key]: Number((event.target as HTMLInputElement).value) };
-    update();
+    // Render current value without writing native storage on every pointer move.
+    editRevision++;
+    update(false);
   });
+  input.addEventListener('change',()=>update());
 }
 const toggle = document.querySelector<HTMLButtonElement>('#enabled')!;
 function update(persist = true): void {
-  engine.configure(config);
   const theme=activeTheme(config);
+  // Ambient scenes are not a snow simulation. A 0% snowfall slider must not
+  // make butterflies, fireflies, bats or stars disappear from the WebView
+  // preview (the native service already treats these separately).
+  const previewPhysics=theme.particle==='snow'||theme.particle==='rain'
+    ? config
+    : {...config,snowfall:Math.max(.35,theme.intensity*(.45+.55*config.decorationDensity))};
+  engine.configure(previewPhysics);
   engine.setTheme(theme.id);
-  engine.setParticleLimit(PERFORMANCE[resolvePerformance(config.performanceMode)].particles);
+  const selectedBudget=PERFORMANCE[resolvePerformance(config.performanceMode)].particles;
+  // The WebView preview runs alongside the native full-screen Android overlay.
+  // Never render hundreds of duplicate desktop flakes on a small phone preview.
+  engine.setParticleLimit(isAndroid?Math.min(64,selectedBudget):selectedBudget);
   engine.configureActors({autoPlows:config.autoPlows,plowInterval:config.plowInterval});
   themeSelect.value=theme.id;
   themeSelect.disabled=config.automaticTheme;
@@ -204,7 +454,12 @@ function update(persist = true): void {
     button.classList.toggle('active',active);
     button.setAttribute('aria-pressed',String(active));
   }
-  interactionDescription.textContent=INTERACTION_TOOLS.find(t=>t.id===mode)?.details??'';
+  const toolDetails=INTERACTION_TOOLS.find(t=>t.id===mode)?.details??'';
+  interactionDescription.textContent=isAndroid
+    ? mode==='none'
+      ? 'Preview only. Choose a tool for touch interaction; weather over other apps remains click-through.'
+      : 'Live preview only · '+toolDetails
+    : toolDetails;
   toggle.setAttribute('aria-checked', String(config.enabled));
   for (const spec of specs) {
     const field = document.querySelector<HTMLInputElement>(`#${spec.key}`)!;
@@ -215,6 +470,12 @@ function update(persist = true): void {
     const p = PRESETS[chip.textContent || ''];
     const active = p && Object.entries(p).every(([k, v]) => Math.abs((config as any)[k] - (v as number)) < 0.02);
     chip.classList.toggle('active', !!active);
+  }
+  // Forward EVERY setting (not only precipitation) to the native Android
+  // service, which renders above other applications with the same scene ID.
+  if (isAndroid) {
+    scheduleOverlayUpdate();
+    window.dispatchEvent(new Event('snowy:preview-refresh'));
   }
   if (persist) {
     editRevision += 1;
@@ -237,6 +498,9 @@ document.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', (
 document.querySelector<HTMLButtonElement>('#clear')!.addEventListener('click', () => {
   engine.clear();
   void broadcastClearSnow();
+  if(isAndroid&&overlayRunning){
+    void androidOverlayAction('clear').catch(err=>console.warn('[snowy] clear mobile piles failed',err));
+  }
 });
 update(false);
 const hydrationRevision = editRevision;
@@ -252,32 +516,89 @@ const elementRects = () => Array.from(scene.querySelectorAll<HTMLElement>('[data
   return { id: el.dataset.window!, x: a.x - b.x, y: a.y - b.y, width: a.width, height: a.height, z: 2 - z } satisfies Surface;
 });
 function sizePreview(): void {
-  const b = scene.getBoundingClientRect(); ctx = fitCanvas(canvas, b.width, b.height);
+  const b = scene.getBoundingClientRect();
+  if(b.width<4||b.height<4)return; // Collapsed preview: retain current simulation.
+  ctx = fitCanvas(canvas, b.width, b.height);
   engine.resize(b.width, b.height); engine.setSurfaces([...elementRects(), { id: 'floor', x: 0, y: b.height - 3, width: b.width, height: 5, z: -100 }], performance.now()/1000);
 }
 new ResizeObserver(sizePreview).observe(scene);
 let last = performance.now();
 let lastVisual=0;
+let lastSurfaceSync=0;
 let lastCalendarDay=new Date().getDate();
+let previewFramePending=false;
+let previewWakeTimer:ReturnType<typeof setTimeout>|null=null;
+function previewIsSuspended():boolean {
+ return isAndroid && (document.hidden || !config.enabled ||
+   Boolean(scene.closest('.visual')?.classList.contains('preview-collapsed')));
+}
+function queuePreviewFrame():void {
+ if(previewFramePending || previewIsSuspended())return;
+ previewFramePending=true;
+ requestAnimationFrame(animate);
+}
+function schedulePreviewFrame():void {
+ if(previewIsSuspended())return;
+ if(!isAndroid){queuePreviewFrame();return;}
+ if(previewWakeTimer!==null)return;
+ // Fullscreen overlay renders natively. The WebView is only a miniature preview.
+ const previewFPS=config.reduceMotion?2:overlayRunning?4:8;
+ previewWakeTimer=setTimeout(()=>{
+   previewWakeTimer=null;
+   queuePreviewFrame();
+ },Math.ceil(1000/previewFPS));
+}
 function animate(now: number): void {
-  requestAnimationFrame(animate);
-  const interval=1000/PERFORMANCE[resolvePerformance(config.performanceMode)].fps;
-  if(now-lastVisual<interval)return;
-  lastVisual=now;
-  if(config.automaticTheme) {
+ previewFramePending=false;
+ if(previewIsSuspended()){last=now;return;}
+ const requestedFPS=PERFORMANCE[resolvePerformance(config.performanceMode)].fps;
+ const previewFPS=isAndroid
+   ?(config.reduceMotion?2:overlayRunning?4:Math.min(8,requestedFPS))
+   :requestedFPS;
+ const interval=1000/previewFPS;
+ if(now-lastVisual<interval){schedulePreviewFrame();return;}
+ lastVisual=now;
+ if(config.automaticTheme) {
     const today=new Date();
     if(today.getDate()!==lastCalendarDay) {lastCalendarDay=today.getDate();update(false);}
   }
   const dt = Math.min(.1, (now - last) / 1000); last = now;
-  engine.setSurfaces([...elementRects(), { id: 'floor', x: 0, y: engine.height - 3, width: engine.width, height: 5, z: -100 }], now / 1000);
+  if(!isAndroid || now-lastSurfaceSync>=350) {
+    engine.setSurfaces([...elementRects(), { id: 'floor', x: 0, y: engine.height - 3, width: engine.width, height: 5, z: -100 }], now / 1000);
+    lastSurfaceSync=now;
+  }
   if (config.enabled) {
     for(let remaining=dt;remaining>0;) {
       const step=Math.min(1/30,remaining);engine.step(step);remaining-=step;
     }
     drawSnow(ctx,engine,false,activeTheme(config).id,config);
   } else ctx.clearRect(0, 0, engine.width, engine.height);
+ schedulePreviewFrame();
 }
-sizePreview(); requestAnimationFrame(animate);
+sizePreview();queuePreviewFrame();
+if(isAndroid){
+ let lastPreviewTheme=activeTheme(config).id;
+ document.addEventListener('visibilitychange',()=>{
+   last=performance.now();
+   if(!document.hidden)queuePreviewFrame();
+ });
+ window.addEventListener('snowy:preview-refresh',()=>{
+   const nextTheme=activeTheme(config).id;
+   if(nextTheme!==lastPreviewTheme){
+     lastPreviewTheme=nextTheme;
+     // A new scene must paint on the next animation frame, even if the
+     // low-power Android preview was waiting for its 4 FPS cadence.
+     lastVisual=0;
+     if(previewWakeTimer!==null){
+       clearTimeout(previewWakeTimer);
+       previewWakeTimer=null;
+     }
+   }
+   last=performance.now();
+   if(!config.enabled)ctx.clearRect(0,0,engine.width,engine.height);
+   queuePreviewFrame();
+ });
+}
 for (const el of scene.querySelectorAll<HTMLElement>('[data-window]')) {
   let drag: { id: number; px: number; py: number; x: number; y: number } | null = null;
   el.addEventListener('pointerdown', event => {

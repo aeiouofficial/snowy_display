@@ -14,10 +14,10 @@ export interface SceneMotif {
  * Virtual desktop coordinates are used for all screens, not per-monitor seeds.
  */
 const FEATURES:Record<string,readonly MotifKind[]>={
-  'winter-snow':['pine','icicle','snowflake'],
-  'winter-blizzard':['pine','icicle','cloud'],
+  'winter-snow':['snowflake'],
+  'winter-blizzard':['snowflake','cloud'],
   'winter-frost':['icicle','snowflake','moon'],
-  'winter-northernlights':['aurora','pine','moon'],
+  'winter-northernlights':['aurora','moon'],
   'winter-forest':['pine','bird','snowflake'],
   'spring-petals':['branch','butterfly','flower'],
   'spring-rain':['cloud','rainbow','flower'],
@@ -37,7 +37,7 @@ const FEATURES:Record<string,readonly MotifKind[]>={
   'autumn-migration':['bird','cloud','branch'],
   'halloween-bats':['bat','moon','pumpkin','lantern'],
   'halloween-embers':['lantern','pumpkin','bat'],
-  'christmas-snow':['fairylight','pine','snowflake'],
+  'christmas-snow':['fairylight','snowflake'],
   'newyear-confetti':['firework','star','fairylight'],
   'ambient-embers':['lantern','star'],
   'ambient-cosmos':['meteor','moon','star'],

@@ -16,11 +16,16 @@ export function installStudioUI(patch:Patch): (settings:AppSettings,theme:Weathe
  let category='All',query='';
  let lastTheme='',lastAuto=false;
  function setTab(id:string):void{
+  // Pin the category/search toolbar through its bottom edge on Scenes only.
+  const toolbar=document.getElementById('mobile-scene-toolbar');
+  if(toolbar)toolbar.hidden=id!=='scenes';
+  document.querySelector<HTMLElement>('.app-shell')?.classList.toggle('scenes-selected',id==='scenes');
   tabs.forEach((tab)=>{
    const active=tab.dataset.tab===id;
    tab.setAttribute('aria-selected',String(active));
    tab.tabIndex=active?0:-1;
    const panel=byId('panel-'+tab.dataset.tab);
+   if(active && panel.hidden)panel.scrollTop=0;
    panel.hidden=!active;
   });
  }
@@ -35,6 +40,29 @@ export function installStudioUI(patch:Patch): (settings:AppSettings,theme:Weathe
    tabs[indexNext].focus();
   });
  });
+ // Distinct, equal-sized vector icons replace Unicode glyphs on Android,
+ // whose fallback fonts produced misaligned bottom bar icons.
+ if(document.documentElement.classList.contains('android-ui')){
+  const paths:Record<string,string>={
+   scenes:'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z',
+   physics:'M12 2v20 M4 6l16 12 M20 6L4 18 M8 4l4 4 4-4 M2 12l6 0 M16 12h6 M8 20l4-4 4 4',
+   activity:'M4 20L20 4 M15 3l1 3 M20 9l2 1 M3 4l2 1 M3 13l2-1 M10 2l1 2',
+   system:'M4 7h16 M4 17h16 M9 4v6 M15 14v6',
+  };
+  tabs.forEach(tab=>{
+   const holder=tab.querySelector<HTMLElement>('.tab-symbol');
+   const path=paths[tab.dataset.tab||'']||paths.scenes;
+   if(!holder)return;
+   holder.textContent='';
+   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+   svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('width','21');svg.setAttribute('height','21');
+   svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.7');
+   svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');
+   svg.setAttribute('aria-hidden','true');
+   const shape=document.createElementNS('http://www.w3.org/2000/svg','path');
+   shape.setAttribute('d',path);svg.appendChild(shape);holder.appendChild(svg);
+  });
+ }
  setTab('scenes');
 
  function drawCards():void {
@@ -129,8 +157,11 @@ export function installStudioUI(patch:Patch): (settings:AppSettings,theme:Weathe
   const button=document.createElement('button');button.type='button';
   button.className='quality-card';button.dataset.quality=mode;
   const head=document.createElement('strong');head.textContent=mode==='eco'?'Eco':mode==='balanced'?'Balanced':'High';
-  const hint=document.createElement('small');hint.textContent=mode==='eco'?'24 FPS · lighter load':
-    mode==='balanced'?'36 FPS · optimized':'60 FPS · full detail';
+  const android=document.documentElement.classList.contains('android-ui');
+  const hint=document.createElement('small');
+  hint.textContent=android
+    ? mode==='eco'?'Up to 8 FPS · low power':mode==='balanced'?'Up to 12 FPS · stable':'Up to 20 FPS · capped'
+    : mode==='eco'?'24 FPS · lighter load':mode==='balanced'?'36 FPS · optimized':'60 FPS · full detail';
   button.append(head,hint);
   button.addEventListener('click',()=>patch({performanceMode:mode}));
   quality.appendChild(button);
