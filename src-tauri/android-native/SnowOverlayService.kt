@@ -410,7 +410,7 @@ private class WeatherCanvas(service:Service):View(service) {
    }
    "bat"->{
     val wave=if(animations&&!reducedMotion)sin(t*5+index)*s*.27f else 0f
-    poly(c,0xff837296.toInt(),210,x-s,y-s*.15f,x-s*.5f,y-s*.35f-wave,
+    poly(c,0xffb5a2d2.toInt(),225,x-s,y-s*.15f,x-s*.5f,y-s*.35f-wave,
      x,y,x+s*.5f,y-s*.35f-wave,x+s,y-s*.15f,x+s*.38f,y+s*.2f,x,y+s*.09f,x-s*.38f,y+s*.2f)
    }
    "lantern"->{
@@ -557,21 +557,25 @@ private class WeatherCanvas(service:Service):View(service) {
     p.x=rng.nextFloat()*w;p.y=if(mode=="embers")h+6f else -rng.nextFloat()*55f
    }
    val tint=if(p.variant%2==0)primary else secondary
+   val renderRadius=(p.r*scale).coerceIn(.7f,8f)
    when(mode){
-    "rain"->rectangle(c,p.x,p.y,p.x+max(1.1f,p.r*.65f),p.y+11f,tint,179)
-    "petals"->oval(c,p.x,p.y,p.r*2f,p.r*.95f,tint,190)
+    "rain"->rectangle(c,p.x,p.y,p.x+max(1.1f,renderRadius*.65f),p.y+11f*scale,tint,179)
+    "petals"->oval(c,p.x,p.y,renderRadius*2f,renderRadius*.95f,tint,190)
     "leaves"->{
-     oval(c,p.x,p.y,p.r*2.2f,p.r*1.15f,tint,200)
-     line(c,p.x-p.r,p.y,p.x+p.r,p.y,tint,1f)
+     oval(c,p.x,p.y,renderRadius*2.2f,renderRadius*1.15f,tint,200)
+     line(c,p.x-renderRadius,p.y,p.x+renderRadius,p.y,tint,1f)
     }
-    "bats"->drawMotif(c,"bat",p.x,p.y,p.r*3f,elapsed,p.variant)
-    "fireflies"->disc(c,p.x,p.y,p.r*.8f,tint,if(animations&&!reducedMotion) (170+65*sin(elapsed*2+p.phase)).toInt() else 210)
+    "bats"->drawMotif(c,"bat",p.x,p.y,5f+renderRadius*4f,elapsed,p.variant)
+    "fireflies"->{
+     disc(c,p.x,p.y,renderRadius*2.7f,tint,42)
+     disc(c,p.x,p.y,renderRadius,tint,if(animations&&!reducedMotion) (170+65*sin(elapsed*2+p.phase)).toInt() else 210)
+    }
     "stars"->{
-     line(c,p.x-p.r,p.y,p.x+p.r,p.y,tint,1.5f)
-     line(c,p.x,p.y-p.r,p.x,p.y+p.r,tint,1.5f)
+     line(c,p.x-renderRadius,p.y,p.x+renderRadius,p.y,tint,1.5f)
+     line(c,p.x,p.y-renderRadius,p.x,p.y+renderRadius,tint,1.5f)
     }
-    "confetti"->rectangle(c,p.x,p.y,p.x+p.r*2f,p.y+p.r*2f,tint,210)
-    else->disc(c,p.x,p.y,p.r,tint,195)
+    "confetti"->rectangle(c,p.x,p.y,p.x+renderRadius*2f,p.y+renderRadius*2f,tint,210)
+    else->disc(c,p.x,p.y,renderRadius,tint,195)
    }
   }
  }

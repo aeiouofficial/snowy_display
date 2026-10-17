@@ -157,8 +157,11 @@ export function installStudioUI(patch:Patch): (settings:AppSettings,theme:Weathe
   const button=document.createElement('button');button.type='button';
   button.className='quality-card';button.dataset.quality=mode;
   const head=document.createElement('strong');head.textContent=mode==='eco'?'Eco':mode==='balanced'?'Balanced':'High';
-  const hint=document.createElement('small');hint.textContent=mode==='eco'?'24 FPS · lighter load':
-    mode==='balanced'?'36 FPS · optimized':'60 FPS · full detail';
+  const android=document.documentElement.classList.contains('android-ui');
+  const hint=document.createElement('small');
+  hint.textContent=android
+    ? mode==='eco'?'Up to 8 FPS · low power':mode==='balanced'?'Up to 12 FPS · stable':'Up to 20 FPS · capped'
+    : mode==='eco'?'24 FPS · lighter load':mode==='balanced'?'36 FPS · optimized':'60 FPS · full detail';
   button.append(head,hint);
   button.addEventListener('click',()=>patch({performanceMode:mode}));
   quality.appendChild(button);

@@ -150,6 +150,24 @@ for (const tool of INTERACTION_TOOLS) {
   interactionButtons.appendChild(button);
 }
 const isAndroid = document.documentElement.classList.contains('android-ui');
+if(isAndroid){
+  // Platform-specific descriptions must match Android's click-through overlay.
+  const copy=(selector:string,value:string):void=>{
+    const element=document.querySelector<HTMLElement>(selector);
+    if(element)element.textContent=value;
+  };
+  copy('#panel-physics .panel-heading > p',
+    'Android snow settles at the bottom of the display. Wind, gravity and settling affect snow scenes; other themes use their own particles.');
+  copy('#panel-physics .info-strip',
+    'Android cannot inspect other apps’ window edges. There is no window-aware accumulation or sliding on other apps.');
+  copy('#panel-activity .block-note',
+    'On Android the snowplow works on bottom-edge accumulated snow. The other interaction tools operate in the live preview only.');
+  copy('#panel-activity .switch-line small',
+    'Android: bottom-edge snow only; does not intercept other apps’ taps');
+  copy('#panel-system .heading-row .content-count','ANDROID SCREEN');
+  copy('#panel-system .panel-heading > p',
+    'One click-through overlay across compatible Android apps. Frame rate is capped to protect battery life.');
+}
 const androidControls = document.querySelector<HTMLElement>('#android-overlay-controls')!;
 const overlayQuick = document.querySelector<HTMLButtonElement>('#android-overlay-quick')!;
 const overlayStatus = document.querySelector<HTMLElement>('#android-overlay-status')!;
@@ -436,7 +454,12 @@ function update(persist = true): void {
     button.classList.toggle('active',active);
     button.setAttribute('aria-pressed',String(active));
   }
-  interactionDescription.textContent=INTERACTION_TOOLS.find(t=>t.id===mode)?.details??'';
+  const toolDetails=INTERACTION_TOOLS.find(t=>t.id===mode)?.details??'';
+  interactionDescription.textContent=isAndroid
+    ? mode==='none'
+      ? 'Preview only. Choose a tool for touch interaction; weather over other apps remains click-through.'
+      : 'Live preview only · '+toolDetails
+    : toolDetails;
   toggle.setAttribute('aria-checked', String(config.enabled));
   for (const spec of specs) {
     const field = document.querySelector<HTMLInputElement>(`#${spec.key}`)!;
