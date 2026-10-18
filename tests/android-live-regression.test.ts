@@ -35,6 +35,8 @@ test('Android bats and fireflies have distinct high-visibility rendering',()=>{
  assert.match(native,/0xffb5a2d2\.toInt\(\),225/);
  assert.match(native,/"bat"->drawMotif\(c,"bat",x,y,s0\*1\.3f/);
  assert.match(native,/"firefly","sun-dust"->\{/);
- assert.match(native,/disc\(c,x,y,s0\*3\.4f,tint,35\)/);
+ assert.match(native,/if\(kind=="firefly"\)\{/);
+ assert.match(native,/oval\(c,x-s0\*\.45f,y-s0\*\.35f/);
+ assert.doesNotMatch(native,/disc\(c,x,y,s0\*3\.4f,tint,35\)/);
  assert.match(native,/val maxDraw=\(5\*density\)\.toInt\(\)\.coerceIn\(0,5\)/);
 });

@@ -998,3 +998,34 @@ private class WeatherCanvas(service:Service):View(service) {
   for(i in 1 until depth.size) {
    val left=(i-1f)*binWidth
    val mid=(i-.5f)*binWidth
+   contour.quadTo(left,h-depth[i-1],mid,h-(depth[i-1]+depth[i])*.5f)
+  }
+  contour.lineTo(w,h-depth.last())
+  contour.lineTo(w,h+2f)
+  contour.close()
+  paint(0xffe6f2fc.toInt(),220)
+  c.drawPath(contour,brush)
+  paint(0xfff4faff.toInt(),230,1.25f,Paint.Style.STROKE)
+  c.drawPath(contour,brush)
+  brush.style=Paint.Style.FILL
+ }
+ override fun onDraw(c:Canvas){
+  super.onDraw(c)
+  if(!active||powerPaused||!enabled)return
+  val now=System.nanoTime()
+  val dt=if(previous==0L).016f else ((now-previous)/1_000_000_000f).coerceIn(.004f,.065f)
+  previous=now
+  elapsed+=dt
+  val w=width.toFloat();val h=height.toFloat()
+  if(w<=0f||h<=0f)return
+  drawAtmosphere(c,w,h)
+  drawDecorations(c,w,h)
+  drawParticles(c,w,h,dt)
+  settleSnow(c,w,h,dt)
+  // Never redraw while screen-off, disabled, thermally hot or critically low.
+  // Battery saver and 20% or less reduce the compositor to four FPS.
+  val baselineFps=when(quality){"eco"->8;"high"->20;else->12}
+  val fps=if(powerConstrained)min(4,baselineFps) else baselineFps
+  postInvalidateDelayed(1000L/fps)
+ }
+}

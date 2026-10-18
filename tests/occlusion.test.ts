@@ -61,6 +61,7 @@ test('renderer clips underlying snow crests against a foreground window even abo
     beginPath:record('beginPath'),save:record('save'),restore:record('restore'),
     createLinearGradient:()=>gradient, createRadialGradient:()=>gradient,
     fill:record('fill'),stroke:record('stroke'),arc:record('arc'),translate:record('translate'),
+    rotate:record('rotate'),moveTo:record('moveTo'),lineTo:record('lineTo'),
   } as unknown as CanvasRenderingContext2D;
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'Path2D');
   class MockPath {moveTo(){} lineTo(){} quadraticCurveTo(){} closePath(){}}
@@ -89,7 +90,7 @@ test('intersecting foreground windows cannot toggle the rear snow mask back on',
     beginPath: () => { rectCount = 0; },
     rect: () => { rectCount++; },
     clip: () => { clipRectCounts.push(rectCount); },
-    arc: noop, translate: noop,
+    arc: noop, translate: noop, rotate: noop, moveTo: noop, lineTo: noop,
     createLinearGradient: () => gradient,
     createRadialGradient: () => gradient,
   } as unknown as CanvasRenderingContext2D;
