@@ -118,7 +118,7 @@ target.innerHTML = `<main class="app-shell">
    <button type="button" data-origami-mode-option="light" aria-pressed="false">Light</button>
   </div>
  </div>
- <div class="settings-block"><h3>Desktop integration</h3>
+ <div class="settings-block device-integration"><h3>Desktop integration</h3>
   <div class="system-row"><span>Monitor topology</span><strong>Automatic</strong></div>
   <div class="system-row"><span>Overlay input</span><strong>Click-through</strong></div>
   <div class="system-row"><span>Scene data</span><strong>Stored locally</strong></div>
@@ -178,6 +178,9 @@ if(isAndroid){
   copy('#panel-system .heading-row .content-count','ANDROID SCREEN');
   copy('#panel-system .panel-heading > p',
     'One click-through overlay across compatible Android apps. Frame rate is capped to protect battery life.');
+  copy('.device-integration h3','Device integration');
+  copy('.device-integration .block-note',
+    'Android restricts inspecting other apps’ private windows. The weather overlay stays click-through and uses the phone display boundaries.');
 }
 const androidControls = document.querySelector<HTMLElement>('#android-overlay-controls')!;
 const overlayQuick = document.querySelector<HTMLButtonElement>('#android-overlay-quick')!;
