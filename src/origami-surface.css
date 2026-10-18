@@ -1,0 +1,374 @@
+/*
+ * Snowy Display / Origami-inspired surface system.
+ *
+ * Independent CSS implementation inspired by the visual language of
+ * hazymorning/origami (AGPL-3.0): warm neutral surfaces, quiet depth, softly
+ * rounded cards, semantic state color, tactile grouped controls and coherent
+ * dark/light modes. NO Home Assistant/Bubble Card source is included.
+ *
+ * Intentionally presentational: no display, grid, position, overflow, height,
+ * pointer-events or native overlay behavior changes. The existing Android
+ * viewport/navigation contract remains owned by style.css.
+ */
+:root[data-origami-mode="dark"] {
+ color-scheme:dark;
+ --o-page:#181715;
+ --o-shell:#181715;
+ --o-card:#2f2d2a;
+ --o-raised:#34322f;
+ --o-inset:#242320;
+ --o-subtle:#393733;
+ --o-chip:#373530;
+ --o-border:rgba(229,227,221,.085);
+ --o-divider:rgba(229,227,221,.075);
+ --o-text:#e5e3dd;
+ --o-muted:#a9a6a0;
+ --o-soft:#88857e;
+ --o-brand:#8fbaa3;
+ --o-brand-strong:#a3d7ba;
+ --o-on-brand:#17251c;
+ --o-brand-wash:rgba(124,172,144,.16);
+ --o-warning:#e2ba8b;
+ --o-danger:#e6a0a0;
+ --o-danger-wash:rgba(190,93,91,.17);
+ --o-shadow:0 1px 2px rgba(0,0,0,.33),0 8px 22px -8px rgba(0,0,0,.50);
+ --o-shadow-raised:0 12px 36px -12px rgba(0,0,0,.65);
+ --o-topbar:#211f1d;
+ --o-navbar:#272522;
+ --o-previewbar:#302d29;
+ --o-previewfoot:#292824;
+ --o-field:#252420;
+ --o-focus:#9acfb0;
+ --o-track:#494640;
+ --o-thumb:#c2c2b7;
+ --o-card-rad:20px;
+ --o-control-rad:13px;
+ --o-motion:220ms cubic-bezier(.22,1,.36,1);
+ --bg:var(--o-page); --surface:var(--o-card); --surface2:var(--o-inset);
+ --border:var(--o-border); --line:var(--o-divider);
+ --muted:var(--o-muted); --muted2:var(--o-soft);
+ --text:var(--o-text); --accent:var(--o-brand);
+ --accent-wash:var(--o-brand-wash);
+ background:var(--o-page);color:var(--o-text);
+}
+:root[data-origami-mode="light"] {
+ color-scheme:light;
+ --o-page:#f6f5f3;
+ --o-shell:#f2f0eb;
+ --o-card:#fff;
+ --o-raised:#fff;
+ --o-inset:#efeeeb;
+ --o-subtle:#f5f3ef;
+ --o-chip:#f0efeb;
+ --o-border:rgba(80,76,68,.11);
+ --o-divider:rgba(80,76,68,.095);
+ --o-text:#4f4c49;
+ --o-muted:#686560;
+ --o-soft:#85817c;
+ --o-brand:#547e69;
+ --o-brand-strong:#416c57;
+ --o-on-brand:#fff;
+ --o-brand-wash:rgba(103,147,123,.15);
+ --o-warning:#99612b;
+ --o-danger:#ad4f51;
+ --o-danger-wash:rgba(180,72,75,.095);
+ --o-shadow:0 1px 2px rgba(69,58,41,.045),0 8px 21px -7px rgba(69,58,41,.09);
+ --o-shadow-raised:0 12px 30px -14px rgba(69,58,41,.17);
+ --o-topbar:#f2f0eb;
+ --o-navbar:#fff;
+ --o-previewbar:#f7f5f1;
+ --o-previewfoot:#fff;
+ --o-field:#f5f3f0;
+ --o-focus:#416c57;
+ --o-track:#e0ddd7;
+ --o-thumb:#706e68;
+ --o-card-rad:20px;
+ --o-control-rad:13px;
+ --o-motion:220ms cubic-bezier(.22,1,.36,1);
+ --bg:var(--o-page); --surface:var(--o-card); --surface2:var(--o-inset);
+ --border:var(--o-border); --line:var(--o-divider);
+ --muted:var(--o-muted); --muted2:var(--o-soft);
+ --text:var(--o-text); --accent:var(--o-brand);
+ --accent-wash:var(--o-brand-wash);
+ background:var(--o-page);color:var(--o-text);
+}
+:root[data-origami-mode] body {
+ background:var(--o-page);color:var(--o-text);
+ font-family:"Segoe UI Variable","Segoe UI",Inter,system-ui,-apple-system,sans-serif;
+}
+:root[data-origami-mode] .app-shell {
+ background:var(--o-shell);
+}
+:root[data-origami-mode]:not(.android-ui) .app-shell {
+ box-shadow:0 0 0 1px var(--o-border);
+}
+:root[data-origami-mode] .header {
+ color:var(--o-text);
+}
+:root[data-origami-mode] .brandmark {
+ background:var(--o-card);color:var(--o-brand);
+ border:1px solid var(--o-border);
+ border-radius:14px;box-shadow:var(--o-shadow);
+}
+:root[data-origami-mode] .brandcopy h1 {color:var(--o-text);letter-spacing:-.5px}
+:root[data-origami-mode] .brandcopy p {color:var(--o-muted);letter-spacing:1.15px}
+:root[data-origami-mode] .live-status {
+ color:var(--o-brand-strong);background:var(--o-brand-wash);
+ border:1px solid rgba(133,172,142,.17);
+}
+:root[data-origami-mode] .live-dot {
+ background:var(--o-brand);box-shadow:0 0 0 3px var(--o-brand-wash);
+}
+:root[data-origami-mode] .visual {
+ border:1px solid var(--o-border);border-radius:var(--o-card-rad);
+ background:var(--o-card);box-shadow:var(--o-shadow);
+}
+:root[data-origami-mode] .preview-head {
+ background:var(--o-previewbar);border-color:var(--o-divider);
+ color:var(--o-muted);letter-spacing:.85px;
+}
+:root[data-origami-mode] .preview-hint{color:var(--o-soft)}
+:root[data-origami-mode] .scene-caption {
+ background:var(--o-previewfoot);border-color:var(--o-divider);
+}
+:root[data-origami-mode] .scene-caption h2{color:var(--o-text)}
+:root[data-origami-mode] .scene-caption p{color:var(--o-muted)}
+:root[data-origami-mode] #scene-category {color:var(--o-brand-strong)}
+:root[data-origami-mode] .scene-running {
+ border-color:var(--o-brand-wash);color:var(--o-brand-strong);
+ background:var(--o-brand-wash);border-radius:9px;
+}
+:root[data-origami-mode] .scene-running.paused {
+ color:var(--o-danger);background:var(--o-danger-wash);
+ border-color:var(--o-danger-wash);
+}
+:root[data-origami-mode] .studio-tabs {
+ background:var(--o-navbar);border:1px solid var(--o-border);
+ border-radius:16px;box-shadow:var(--o-shadow);
+}
+:root[data-origami-mode] .studio-tabs button {
+ color:var(--o-muted);border-radius:12px;
+ transition:color var(--o-motion),background-color var(--o-motion);
+}
+:root[data-origami-mode] .studio-tabs button[aria-selected="true"] {
+ background:var(--o-brand-wash);color:var(--o-text);box-shadow:none;
+}
+:root[data-origami-mode] .studio-tabs button:hover:not([aria-selected="true"]) {
+ color:var(--o-text);background:var(--o-subtle);
+}
+:root[data-origami-mode] .tab-symbol{color:var(--o-brand)}
+:root[data-origami-mode] .eyebrow,#scene-category {
+ color:var(--o-brand-strong);
+}
+:root[data-origami-mode] .heading-row h2,
+:root[data-origami-mode] .panel-heading h2,
+:root[data-origami-mode] .settings-block h3 {color:var(--o-text)}
+:root[data-origami-mode] .panel-heading p,
+:root[data-origami-mode] .block-note,
+:root[data-origami-mode] .info-strip {color:var(--o-muted)}
+:root[data-origami-mode] .content-count {
+ background:var(--o-brand-wash);border:1px solid var(--o-border);
+ color:var(--o-brand-strong);border-radius:10px;
+}
+:root[data-origami-mode] .category-chip {
+ background:var(--o-chip);color:var(--o-muted);
+ border:1px solid var(--o-border);border-radius:999px;
+ transition:background-color var(--o-motion),color var(--o-motion);
+}
+:root[data-origami-mode] .category-chip.selected {
+ background:var(--o-brand-wash);border-color:var(--o-brand);
+ color:var(--o-brand-strong);
+}
+:root[data-origami-mode] .search-scenes {
+ background:var(--o-field);color:var(--o-muted);
+ border:1px solid var(--o-border);border-radius:var(--o-control-rad);
+}
+:root[data-origami-mode] .search-scenes:focus-within {
+ border-color:var(--o-brand);box-shadow:0 0 0 3px var(--o-brand-wash);
+}
+:root[data-origami-mode] .search-scenes input {color:var(--o-text)}
+:root[data-origami-mode] .search-scenes input::placeholder {color:var(--o-soft)}
+:root[data-origami-mode] .theme-gallery {
+ scrollbar-color:var(--o-track) transparent;
+}
+:root[data-origami-mode] .scene-card {
+ background:var(--o-card);color:var(--o-text);
+ border:1px solid var(--o-border);border-radius:15px;
+ box-shadow:var(--o-shadow);transition:background-color var(--o-motion),box-shadow var(--o-motion),border-color var(--o-motion);
+}
+:root[data-origami-mode] .scene-card:hover {
+ background:var(--o-raised);border-color:var(--o-brand);
+ box-shadow:var(--o-shadow-raised);
+}
+:root[data-origami-mode] .scene-card.selected {
+ background:var(--o-brand-wash);border-color:var(--o-brand);
+ box-shadow:inset 0 0 0 1px var(--o-brand-wash);
+}
+:root[data-origami-mode] .scene-art,
+:root[data-origami-mode] .scene-art[data-category] {
+ background:color-mix(in srgb,var(--scene-accent,var(--o-brand)) 13%,var(--o-card));
+ box-shadow:inset 0 0 0 1px var(--o-border);border-radius:12px;
+}
+:root[data-origami-mode] .scene-card-copy strong {color:var(--o-text)}
+:root[data-origami-mode] .scene-card-copy small {color:var(--o-muted)}
+:root[data-origami-mode] .selected-tick {color:var(--o-brand-strong)}
+:root[data-origami-mode] .settings-block {
+ background:var(--o-card);border:1px solid var(--o-border);
+ border-radius:var(--o-card-rad);box-shadow:var(--o-shadow);
+}
+:root[data-origami-mode] .switch-line,
+:root[data-origami-mode] .fine-row,
+:root[data-origami-mode] .control-row,
+:root[data-origami-mode] .system-row {border-color:var(--o-divider)}
+:root[data-origami-mode] .switch-line strong,
+:root[data-origami-mode] .fine-row strong,
+:root[data-origami-mode] .control-row strong,
+:root[data-origami-mode] .control-title,
+:root[data-origami-mode] .system-row strong {color:var(--o-text)}
+:root[data-origami-mode] .switch-line small,
+:root[data-origami-mode] .fine-row small,
+:root[data-origami-mode] .system-row {color:var(--o-muted)}
+:root[data-origami-mode] .switch-track {
+ background:var(--o-track);border:1px solid var(--o-border);
+}
+:root[data-origami-mode] .switch-track:after {
+ background:var(--o-thumb);
+}
+:root[data-origami-mode] .switch-line input:checked+.switch-track {
+ background:var(--o-brand);border-color:var(--o-brand);
+}
+:root[data-origami-mode] .switch-line input:checked+.switch-track:after {
+ background:var(--o-on-brand);
+}
+:root[data-origami-mode] .fine-row input[type="range"],
+:root[data-origami-mode] .control-row input[type="range"] {
+ accent-color:var(--o-brand);
+}
+:root[data-origami-mode] .fine-row output,
+:root[data-origami-mode] .control-row output {color:var(--o-brand-strong)}
+:root[data-origami-mode] .preset-chip,
+:root[data-origami-mode] .quality-card,
+:root[data-origami-mode] .interaction-button {
+ background:var(--o-subtle);border:1px solid var(--o-border);
+ border-radius:var(--o-control-rad);color:var(--o-text);
+}
+:root[data-origami-mode] .preset-chip:hover,
+:root[data-origami-mode] .interaction-button:hover,
+:root[data-origami-mode] .quality-card:hover{border-color:var(--o-brand)}
+:root[data-origami-mode] .preset-chip.active,
+:root[data-origami-mode] .quality-card.selected,
+:root[data-origami-mode] .interaction-button.active {
+ background:var(--o-brand-wash);border-color:var(--o-brand);
+ color:var(--o-brand-strong);
+}
+:root[data-origami-mode] .quality-card small,
+:root[data-origami-mode] .interaction-description {color:var(--o-muted)}
+:root[data-origami-mode] .environment-field {color:var(--o-muted)}
+:root[data-origami-mode] .environment-field select {
+ background:var(--o-field);color:var(--o-text);
+ border:1px solid var(--o-border);border-radius:var(--o-control-rad);
+}
+:root[data-origami-mode] .toggle {
+ background:var(--o-brand);border-color:var(--o-brand);
+}
+:root[data-origami-mode] .toggle span {background:var(--o-on-brand)}
+:root[data-origami-mode] .toggle[aria-checked="false"] {
+ background:var(--o-track);border-color:var(--o-border);
+}
+:root[data-origami-mode] .toggle[aria-checked="false"] span {background:var(--o-thumb)}
+:root[data-origami-mode] .secondary,
+:root[data-origami-mode] .android-overlay-quick,
+:root[data-origami-mode] .visual #mobile-preview-toggle {
+ color:var(--o-text);background:var(--o-subtle);border:1px solid var(--o-border);
+ border-radius:var(--o-control-rad);
+ transition:background-color var(--o-motion),border-color var(--o-motion);
+}
+:root[data-origami-mode] .secondary:hover,
+:root[data-origami-mode] .android-overlay-quick:hover{
+ background:var(--o-brand-wash);border-color:var(--o-brand);
+}
+:root[data-origami-mode] .secondary.danger,
+:root[data-origami-mode] .android-overlay-quick[aria-pressed="true"] {
+ background:var(--o-danger-wash);border-color:var(--o-danger);
+ color:var(--o-danger);
+}
+:root[data-origami-mode] .android-overlay-controls #android-overlay-status {
+ color:var(--o-brand-strong);
+}
+:root[data-origami-mode] .info-strip {
+ background:var(--o-brand-wash);border:1px solid var(--o-border);
+ border-radius:var(--o-control-rad);
+}
+:root[data-origami-mode] footer {border-color:var(--o-divider);color:var(--o-soft)}
+:root[data-origami-mode] button:focus-visible,
+:root[data-origami-mode] input:focus-visible,
+:root[data-origami-mode] select:focus-visible {
+ outline:2px solid var(--o-focus);outline-offset:3px;
+}
+:root[data-origami-mode] .appearance-mode-control {
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;
+ padding:5px;border-radius:16px;background:var(--o-inset);
+}
+:root[data-origami-mode] .appearance-mode-control button {
+ min-width:0;min-height:39px;border:1px solid transparent;
+ border-radius:12px;background:transparent;color:var(--o-muted);
+ font:inherit;font-size:12px;font-weight:650;
+}
+:root[data-origami-mode] .appearance-mode-control button[aria-pressed="true"] {
+ background:var(--o-card);border-color:var(--o-border);
+ color:var(--o-brand-strong);box-shadow:var(--o-shadow);
+}
+:root[data-origami-mode] .appearance-mode-control button:not([aria-pressed="true"]):hover {
+ color:var(--o-text);background:var(--o-subtle);
+}
+:root[data-origami-mode].android-ui .app-shell {
+ background:var(--o-shell);
+}
+:root[data-origami-mode].android-ui .header {
+ background:var(--o-topbar);border-bottom:1px solid var(--o-divider);
+ box-shadow:none;
+}
+:root[data-origami-mode].android-ui .visual {
+ border:0;border-bottom:1px solid var(--o-divider);
+ border-radius:0;box-shadow:none;
+}
+:root[data-origami-mode].android-ui .mobile-scene-toolbar {
+ background:var(--o-topbar);border-bottom:1px solid var(--o-divider);
+}
+:root[data-origami-mode].android-ui .studio-tabs {
+ background:var(--o-navbar);border:0;
+ border-top:1px solid var(--o-divider);border-radius:0;
+ box-shadow:0 -5px 18px -8px rgba(0,0,0,.22);
+}
+:root[data-origami-mode].android-ui .studio-tabs button[aria-selected="true"] {
+ background:var(--o-brand-wash);color:var(--o-text);
+}
+:root[data-origami-mode].android-ui .studio-tabs button[aria-selected="true"]::after {
+ background:var(--o-brand);
+}
+:root[data-origami-mode].android-ui .scene-card {
+ border-radius:12px;box-shadow:none;
+}
+:root[data-origami-mode].android-ui .settings-block {
+ border-radius:14px;box-shadow:none;
+}
+:root[data-origami-mode].android-ui .mobile-scene-toolbar .category-chip {
+ border-radius:999px;
+}
+:root[data-origami-mode].android-ui .scene-art {
+ border-radius:9px;
+}
+@media (hover:none) {
+ :root[data-origami-mode] .scene-card:hover {
+  background:var(--o-card);border-color:var(--o-border);box-shadow:var(--o-shadow);
+ }
+ :root[data-origami-mode] .scene-card.selected:hover {
+  background:var(--o-brand-wash);border-color:var(--o-brand);
+ }
+}
+@media (prefers-reduced-motion:reduce) {
+ :root[data-origami-mode] *, :root[data-origami-mode] *::before,
+ :root[data-origami-mode] *::after {
+  transition-duration:0ms!important;
+ }
+}

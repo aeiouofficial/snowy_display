@@ -6,7 +6,10 @@ import { PERFORMANCE, resolvePerformance } from './desktop-world.ts';
 import { activeTheme, DEFAULT_APP_SETTINGS } from './settings.ts';
 import { INTERACTION_TOOLS, normalizeTool } from './interactions.ts';
 import { installStudioUI } from './studio-ui.ts';
+import { bootstrapOrigamiAppearance, bindOrigamiAppearance } from './origami-appearance.ts';
 import './style.css';
+import './origami-surface.css';
+bootstrapOrigamiAppearance();
 if (/Android/i.test(navigator.userAgent)) document.documentElement.classList.add('android-ui');
 
 const target = document.querySelector<HTMLDivElement>('#app');
@@ -108,6 +111,13 @@ target.innerHTML = `<main class="app-shell">
   <label class="switch-line"><span><strong>Reduce movement</strong><small>Keep scenery while suppressing decorative animation</small></span>
    <input id="reduced-motion" type="checkbox" role="switch"><span class="switch-track"></span></label>
  </div>
+ <div class="settings-block origami-appearance"><h3>Appearance</h3>
+  <p class="block-note">Origami-inspired surfaces · device-local setting, independent of the weather overlay.</p>
+  <div class="appearance-mode-control" role="group" aria-label="Choose color appearance">
+   <button type="button" data-origami-mode-option="dark" aria-pressed="true">Dark</button>
+   <button type="button" data-origami-mode-option="light" aria-pressed="false">Light</button>
+  </div>
+ </div>
  <div class="settings-block"><h3>Desktop integration</h3>
   <div class="system-row"><span>Monitor topology</span><strong>Automatic</strong></div>
   <div class="system-row"><span>Overlay input</span><strong>Click-through</strong></div>
@@ -120,6 +130,7 @@ target.innerHTML = `<main class="app-shell">
 </section>
 <footer><span>Snowy Display · Atmosphere Studio</span><span>Windows · Linux · macOS · mobile preview</span></footer>
 </main>`;
+bindOrigamiAppearance();
 
 document.querySelector<HTMLElement>('#theme-count')!.textContent=`${THEMES.length} environments`;
 const themeSelect=document.querySelector<HTMLSelectElement>('#theme')!;
