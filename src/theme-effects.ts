@@ -137,7 +137,7 @@ function heart(c:CanvasRenderingContext2D,r:number):void {
   c.bezierCurveTo(r*1.15,-r,r*1.5,0,0,r*.92);c.fill();
 }
 function glow(c:CanvasRenderingContext2D,color:string,r:number,strength:number):void {
-  c.save();c.globalAlpha=Math.min(.85,strength*.4);
+  c.save();c.globalAlpha=Math.min(.3,strength*.16);
   const g=c.createRadialGradient(0,0,0,0,0,Math.max(1,r));
   g.addColorStop(0,color);g.addColorStop(1,'rgba(0,0,0,0)');
   c.fillStyle=g;c.beginPath();c.arc(0,0,r,0,TAU);c.fill();c.restore();
@@ -184,7 +184,9 @@ export function paintThemeParticle(c:CanvasRenderingContext2D,p:Particle,theme:W
   const maximum=fine.has(glyph)?11:25;
   const r=Math.min(maximum,Math.max(minimum,amount*(glyph==='star'?.65:1)));
   c.save();c.translate(x,y);
-  c.globalAlpha=Math.min(1,Math.max(.14,p.opacity));
+  // A silhouette cannot be allowed to fade into the same tiny glow dot.
+  // Fine weather remains translucent; identifiable objects remain legible.
+  c.globalAlpha=Math.min(1,Math.max(FINE_PARTICLES.has(glyph)?.4:VISIBLE_SILHOUETTES.has(glyph)?.82:.65,p.opacity));
   c.rotate(lockedPosition?0:(motion==='swing'||motion==='blizzard'?phase*.47:motion==='orbit'?phase*.1:0)+fx.skew*Math.PI/180);
   c.fillStyle=secondary?theme.secondary:theme.color;
   c.strokeStyle=secondary?theme.secondary:theme.color;
@@ -206,11 +208,22 @@ export function paintThemeParticle(c:CanvasRenderingContext2D,p:Particle,theme:W
     case 'ice-shard':polygon(c,[0,-r*.9,r*.4,0,0,r,-r*.3,0]);break;
     case 'needle':polygon(c,[-r*.2,-r,r*.2,-r*.7,r*.35,r,-r*.12,r*.8]);break;
     case 'petal':petal(c,r);break;
-    case 'pollen':for(let k=0;k<4;k++){const [a,b]=polar(k*TAU/4+phase*.17,r*.45);c.beginPath();c.arc(a,b,r*.19,0,TAU);c.fill();}break;
+    case 'pollen':for(let k=0;k<7;k++){const a=k*TAU/7+phase*.08;const [xx,yy]=polar(a,r*.74);c.beginPath();c.moveTo(0,0);c.lineTo(xx,yy);c.stroke();}star(c,r*.4,7);break;
     case 'seed':c.beginPath();c.ellipse(0,0,r*.25,r*.65,.3,0,TAU);c.fill();streak(c,r*1.5,.3);break;
     case 'butterfly':butterfly(c,r,phase);break;
     case 'prism':c.beginPath();c.arc(0,0,r*.7,0,TAU);c.stroke();polygon(c,[0,-r*.7,r*.38,r*.4,-r*.38,r*.4]);break;
-    case 'firefly':glow(c,theme.color,r*3.4,.95);c.beginPath();c.arc(0,0,r*.45,0,TAU);c.fill();break;
+    case 'firefly':{
+      glow(c,theme.color,r*2,.55);
+      c.save();c.fillStyle='rgba(227,242,253,.75)';
+      const flap=.45+.55*Math.abs(Math.sin(phase*5));
+      c.beginPath();c.ellipse(-r*.43,-r*.35,r*.4*flap,r*.65,-.35,0,TAU);
+      c.ellipse(r*.43,-r*.35,r*.4*flap,r*.65,.35,0,TAU);c.fill();c.restore();
+      c.beginPath();c.ellipse(0,r*.13,r*.27,r*.68,0,0,TAU);c.fill();
+      c.strokeStyle='rgba(32,44,35,.8)';c.lineWidth=Math.max(.65,r*.09);
+      c.beginPath();c.moveTo(-r*.1,-r*.3);c.lineTo(-r*.36,-r*.8);
+      c.moveTo(r*.1,-r*.3);c.lineTo(r*.36,-r*.8);c.stroke();
+      break;
+    }
     case 'meteor':case 'sparkler':
       streak(c,r*4,r*3);star(c,r*.7,4);break;
     case 'bee':
@@ -219,16 +232,16 @@ export function paintThemeParticle(c:CanvasRenderingContext2D,p:Particle,theme:W
       c.fillStyle='rgba(228,244,255,.7)';c.beginPath();c.ellipse(-r*.3,-r*.58,r*.36,r*.35,-.5,0,TAU);
       c.ellipse(r*.3,-r*.58,r*.36,r*.35,.5,0,TAU);c.fill();break;
     case 'ribbon':c.lineWidth=Math.max(1,r*.24);c.beginPath();c.moveTo(-r*1.7,r);c.bezierCurveTo(-r,-r,r*.2,r,r*1.6,-r);c.stroke();break;
-    case 'sun-dust':glow(c,theme.color,r*3,.65);star(c,r*.65,4);break;
+    case 'sun-dust':glow(c,theme.color,r*1.7,.3);for(let k=0;k<8;k++){const [xx,yy]=polar(k*TAU/8,r);c.beginPath();c.moveTo(0,0);c.lineTo(xx,yy);c.stroke();}star(c,r*.54,8);break;
     case 'maple':maple(c,r);break;
     case 'grain':polygon(c,[0,-r,r*.27,-r*.2,r*.15,r*.9,-r*.15,r*.9,-r*.27,-r*.2]);break;
-    case 'leaf-fog':c.globalAlpha*=.3;c.beginPath();c.ellipse(0,0,r*2,r*.4,-.2,0,TAU);c.fill();break;
+    case 'leaf-fog':c.globalAlpha*=.55;c.lineWidth=Math.max(.8,r*.12);for(let j=0;j<3;j++){c.beginPath();c.moveTo(-r*2,r*(j-1)*.32);c.bezierCurveTo(-r,r*(j-2)*.8,r*.6,r*(j+1)*.3,r*2,r*(j-1)*.4);c.stroke();}break;
     case 'bird':bird(c,r,phase);break;
     case 'lightning':polygon(c,[-r*.2,-r,r*.4,-r*.25,0,-r*.2,r*.35,r,-r*.4,r*.06,0,0]);break;
-    case 'fog':c.globalAlpha*=.16;c.beginPath();c.ellipse(0,0,r*3.5,r*.65,0,0,TAU);c.fill();break;
+    case 'fog':c.globalAlpha*=.45;c.lineWidth=Math.max(1,r*.18);for(let j=0;j<4;j++){c.beginPath();c.moveTo(-r*2.6,r*(j-2)*.4);c.bezierCurveTo(-r,r*(j-3)*.6,r,r*(j+1)*.6,r*2.6,r*(j-2)*.35);c.stroke();}break;
     case 'gust':c.beginPath();c.moveTo(-r*2,0);c.bezierCurveTo(-r,-r,r,-r,r*1.1,0);c.bezierCurveTo(r*1.5,r*.7,r*.1,r*.6,r*.5,r*.2);c.stroke();break;
     case 'bat':bat(c,r,phase);break;
-    case 'wisp':glow(c,theme.color,r*3,.9);petal(c,r*.8);streak(c,r*2,-r*.4);break;
+    case 'wisp':glow(c,theme.color,r*1.8,.4);c.beginPath();c.moveTo(0,-r);c.bezierCurveTo(r*1.2,-r*.5,r*.9,r*.35,r*.3,r*.5);c.bezierCurveTo(r*.7,r*1.1,r*.1,r*1.3,-r*.14,r*.8);c.bezierCurveTo(-r*.9,r*.45,-r*1.2,-r*.6,0,-r);c.fill();c.fillStyle='rgba(31,25,43,.85)';c.fillRect(-r*.38,-r*.26,r*.17,r*.23);c.fillRect(r*.22,-r*.26,r*.17,r*.23);break;
     case 'gift':c.fillRect(-r*.55,-r*.55,r*1.1,r*1.1);c.fillStyle=theme.secondary;c.fillRect(-r*.12,-r*.57,r*.24,r*1.12);c.fillRect(-r*.56,-r*.1,r*1.12,r*.2);break;
     case 'confetti':c.fillRect(-r*.5,-r,r,r*1.7);break;
     case 'flame':glow(c,theme.color,r*2.7,.8);polygon(c,[0,-r*1.5,r*.55,-r*.3,r*.55,r*.5,0,r,-r*.55,r*.5,-r*.55,-r*.3]);break;
@@ -236,12 +249,56 @@ export function paintThemeParticle(c:CanvasRenderingContext2D,p:Particle,theme:W
     case 'crescent':c.beginPath();c.arc(0,0,r,Math.PI*.18,Math.PI*1.83);c.arc(r*.34,-r*.16,r*.76,Math.PI*1.78,Math.PI*.22,true);c.closePath();c.fill();break;
     case 'egg':c.beginPath();c.ellipse(0,0,r*.66,r,.1,0,TAU);c.fill();c.strokeStyle=theme.secondary;streak(c,r*.75,1);break;
     case 'heart':heart(c,r);break;
-    case 'candle':glow(c,theme.color,r*3,.55);petal(c,r*.7);break;
+    case 'candle':{
+      c.fillStyle='rgba(235,216,192,.95)';c.fillRect(-r*.47,-r*.09,r*.94,r*1.12);
+      c.fillStyle=theme.secondary;c.fillRect(-r*.3,r*.1,r*.12,r*.72);
+      c.strokeStyle='#4c3a32';c.beginPath();c.moveTo(0,-r*.1);c.lineTo(0,-r*.36);c.stroke();
+      glow(c,theme.color,r*1.75,.38);c.fillStyle=theme.color;petal(c,r*.58);break;
+    }
     case 'lantern':glow(c,theme.color,r*2.7,.6);c.fillRect(-r*.45,-r*.8,r*.9,r*1.55);c.strokeRect(-r*.48,-r*.82,r*.96,r*1.64);break;
     case 'star':star(c,r,5);break;
     default:{const never:never=glyph;throw new Error('Unimplemented glyph '+never);}
   }
   c.restore();
+}
+
+/** A small field of full-size, animated theme-specific actors.
+ * Uses the SAME glyph painter as freely moving particles, never a static
+ * marketing illustration or category emoji. Several larger actors ensure
+ * the signature remains recognizable when the physical engine yields tiny
+ * radius values (especially in the small Android WebView preview).
+ */
+export function paintThemeFeaturedEffects(
+  c:CanvasRenderingContext2D,theme:WeatherTheme,time:number,
+  width:number,height:number,visualScale=1,
+):void {
+  const fx=effectFor(theme.id);
+  const fine=FINE_PARTICLES.has(fx.glyph);
+  const count=fine?7:5;
+  const t=Math.max(0,time);
+  for(let i=0;i<count;i++){
+    const isCompanion=i>=count-2;
+    const glyph=isCompanion?fx.companion:fx.glyph;
+    const seed=(i+1)*1.618+theme.id.length*.127;
+    const phase=seed*2.4+t*fx.frequency;
+    const baselineX=width*(.14+.72*((i*0.381966+0.13)%1));
+    const baselineY=height*(.18+.61*((i*0.291796+0.17)%1));
+    const travel=t*(fx.drift==='blizzard'?42:fx.drift==='sweep'?17:fx.drift==='rise'?-9:
+      fx.drift==='fall'?8:fx.drift==='still'?0:3)*fx.speed;
+    const x=baselineX+Math.sin(phase)*fx.amplitude*.48+
+      (fx.drift==='sweep'||fx.drift==='blizzard'?travel:0);
+    const y=baselineY+Math.cos(phase*.77)*fx.amplitude*.38+
+      (fx.drift==='rise'||fx.drift==='fall'?travel:0);
+    const wrap=(value:number,extent:number)=>((value%extent)+extent)%extent;
+    const size=(fine?4.4:7.4)*(isCompanion?.78:1)*(1+(i%3)*.13);
+    const particle:Particle={
+      x:wrap(x,width),y:wrap(y,height),radius:size,
+      opacity:.92,mass:1.25+seed*.08,vx:0,vy:0,
+    };
+    // Coordinates already encode the scene-specific trajectory. Lock only
+    // positioning; the shape itself retains its animation (flap/twinkle).
+    paintThemeParticle(c,particle,theme,t,width,height,visualScale,glyph,true);
+  }
 }
 
 /** Actual theme-specific icon art in every catalog card; no shared category emoji. */

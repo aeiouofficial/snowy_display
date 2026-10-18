@@ -2,7 +2,7 @@ import type { Particle, SnowEngine, Surface } from './physics.ts';
 import { resolveTheme, type WeatherTheme } from './themes.ts';
 import type { Viewport } from './desktop-world.ts';
 import {renderSeasonalScenery,drawSnowplow,type SceneVisualOptions} from './seasonal-render.ts';
-import {paintThemeParticle,paintThemeAtmosphere} from './theme-effects.ts';
+import {paintThemeParticle,paintThemeAtmosphere,paintThemeFeaturedEffects} from './theme-effects.ts';
 
 export type SnowScene = ReturnType<SnowEngine['snapshot']>;
 export function drawSnow(ctx:CanvasRenderingContext2D, engine:SnowEngine, maskWindows=false, themeId='winter-snow',
@@ -21,6 +21,12 @@ export function drawScene(ctx:CanvasRenderingContext2D, scene:SnowScene, width:n
     paintThemeAtmosphere(ctx,theme.id,width,height,visuals.reduceMotion===true||visuals.animationsEnabled===false?0:scene.time);
   renderSeasonalScenery(ctx,theme.id,width,height,scene.time,visuals,viewport);
   for(const p of scene.flakes) if(visible(p.x,p.y,p.radius*2)) paintThemeParticle(ctx,p,theme,scene.time,width,height,visuals.visualScale??1);
+  // These are actual, animated theme actors, not glowing placeholder circles.
+  // Keep several recognizable silhouettes in every small preview regardless
+  // of the shared physics engine's instantaneous particle radius distribution.
+  paintThemeFeaturedEffects(ctx,theme,
+    visuals.reduceMotion===true||visuals.animationsEnabled===false?0:scene.time,
+    width,height,visuals.visualScale??1);
   if(theme.accumulating) {
     for(const p of scene.clumps) if(visible(p.x,p.y,p.radius*3)) drawClump(ctx,p);
     if(maskWindows) for(const s of scene.surfaces) ctx.clearRect(s.x,s.y+2,s.width,s.height-2);

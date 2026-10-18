@@ -638,9 +638,10 @@ private class WeatherCanvas(service:Service):View(service) {
      if(kind=="seed"){
       oval(c,x,y,s0*.28f,s0*.55f,tint,205)
       line(c,x,y,x+s0*.6f,y-s0*.85f,tint,.7f,170)
-     }else for(i in 0..3){
-      val a=i*Math.PI/2+t*.1
-      disc(c,x+cos(a).toFloat()*s0*.4f,y+sin(a).toFloat()*s0*.4f,s0*.2f,tint,165)
+     }else for(i in 0..6){
+      val a=i*Math.PI*2/7+t*.08
+      line(c,x,y,x+cos(a).toFloat()*s0*.8f,
+       y+sin(a).toFloat()*s0*.8f,tint,1.1f,195)
      }
     }
     "butterfly"->drawMotif(c,"butterfly",x,y,s0*1.35f,t,phase.toInt())
@@ -649,8 +650,25 @@ private class WeatherCanvas(service:Service):View(service) {
      line(c,x-s0*.8f,y+s0*.5f,x+s0*.8f,y+s0*.5f,Color.WHITE,.7f,155)
     }
     "firefly","sun-dust"->{
-     disc(c,x,y,s0*3.4f,tint,35)
-     disc(c,x,y,s0*.7f,tint,if(kind=="firefly")(.65f+.32f*sin(t*2)).times(250).toInt() else 190)
+     // Glow is only atmospheric; the actual flying insect/body is drawn.
+     disc(c,x,y,s0*2f,tint,22)
+     if(kind=="firefly"){
+      val flap=(.45f+.55f*kotlin.math.abs(sin(t*5)))
+      oval(c,x-s0*.45f,y-s0*.35f,s0*.38f*flap,s0*.65f,
+       0xffe3f4fc.toInt(),150)
+      oval(c,x+s0*.45f,y-s0*.35f,s0*.38f*flap,s0*.65f,
+       0xffe3f4fc.toInt(),150)
+      oval(c,x,y+s0*.1f,s0*.23f,s0*.62f,tint,235)
+      line(c,x-s0*.12f,y-s0*.35f,x-s0*.4f,y-s0*.8f,
+       0xff354a3a.toInt(),.9f,210)
+      line(c,x+s0*.12f,y-s0*.35f,x+s0*.4f,y-s0*.8f,
+       0xff354a3a.toInt(),.9f,210)
+     }else{
+      for(i in 0..7){
+       val a=i*Math.PI/4
+       line(c,x,y,x+cos(a).toFloat()*s0,y+sin(a).toFloat()*s0,tint,1.3f,205)
+      }
+     }
     }
     "meteor","sparkler"->{
      line(c,x-s0*2.8f,y-s0*2.3f,x,y,tint,1.3f,170)
@@ -676,9 +694,15 @@ private class WeatherCanvas(service:Service):View(service) {
      x,y+s0*.72f,x+s0*.33f,y+s0*.35f,x+s0,y+s0*.22f,
      x+s0*.53f,y-s0*.06f,x+s0*.8f,y-s0*.6f,x+s0*.25f,y-s0*.42f)
     "leaf-fog","fog"->{
-     val alpha=if(kind=="fog")21 else 49
-     oval(c,x,y,s0*3.2f,s0*.53f,tint,alpha)
-     oval(c,x+s0*1.1f,y-s0*.1f,s0*2f,s0*.4f,tint,alpha/2)
+     val path=Path()
+     for(i in 0..2){
+      val yy=y+(i-1)*s0*.35f
+      path.moveTo(x-s0*2.6f,yy)
+      path.cubicTo(x-s0,yy-s0*.7f,x+s0,yy+s0*.7f,x+s0*2.6f,yy)
+     }
+     paint(tint,if(kind=="fog")70 else 115,1.4f,Paint.Style.STROKE)
+     c.drawPath(path,brush)
+     brush.style=Paint.Style.FILL
     }
     "bird"->{
      val wave=sin(t*4)*s0*.25f
@@ -974,34 +998,3 @@ private class WeatherCanvas(service:Service):View(service) {
   for(i in 1 until depth.size) {
    val left=(i-1f)*binWidth
    val mid=(i-.5f)*binWidth
-   contour.quadTo(left,h-depth[i-1],mid,h-(depth[i-1]+depth[i])*.5f)
-  }
-  contour.lineTo(w,h-depth.last())
-  contour.lineTo(w,h+2f)
-  contour.close()
-  paint(0xffe6f2fc.toInt(),220)
-  c.drawPath(contour,brush)
-  paint(0xfff4faff.toInt(),230,1.25f,Paint.Style.STROKE)
-  c.drawPath(contour,brush)
-  brush.style=Paint.Style.FILL
- }
- override fun onDraw(c:Canvas){
-  super.onDraw(c)
-  if(!active||powerPaused||!enabled)return
-  val now=System.nanoTime()
-  val dt=if(previous==0L).016f else ((now-previous)/1_000_000_000f).coerceIn(.004f,.065f)
-  previous=now
-  elapsed+=dt
-  val w=width.toFloat();val h=height.toFloat()
-  if(w<=0f||h<=0f)return
-  drawAtmosphere(c,w,h)
-  drawDecorations(c,w,h)
-  drawParticles(c,w,h,dt)
-  settleSnow(c,w,h,dt)
-  // Never redraw while screen-off, disabled, thermally hot or critically low.
-  // Battery saver and 20% or less reduce the compositor to four FPS.
-  val baselineFps=when(quality){"eco"->8;"high"->20;else->12}
-  val fps=if(powerConstrained)min(4,baselineFps) else baselineFps
-  postInvalidateDelayed(1000L/fps)
- }
-}
