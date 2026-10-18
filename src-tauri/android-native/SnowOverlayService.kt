@@ -379,8 +379,11 @@ private class WeatherCanvas(service:Service):View(service) {
     }
    }
    "moon"->{
-    disc(c,x,y,s*.57f,0xffe9e5cb.toInt(),180)
-    line(c,x+s*.2f,y-s*.38f,x+s*.42f,y+s*.32f,0xffbbc8e1.toInt(),3f)
+    val outer=Path().apply{addCircle(x,y,s*.57f,Path.Direction.CW)}
+    val cutout=Path().apply{addCircle(x+s*.24f,y-s*.18f,s*.51f,Path.Direction.CW)}
+    outer.op(cutout,Path.Op.DIFFERENCE)
+    paint(0xffd9e4f5.toInt(),190)
+    c.drawPath(outer,brush)
    }
    "cloud"->{
     oval(c,x-s*.34f,y,s*.43f,s*.24f,secondary,100)
@@ -599,7 +602,7 @@ private class WeatherCanvas(service:Service):View(service) {
    }
   }
   private fun uniqueGlyph(c:Canvas,kind:String,x:Float,y:Float,s:Float,tint:Int,phase:Float){
-   val s0=s.coerceIn(.8f,13f)
+   val s0=s.coerceIn(1.25f,30f)
    val t=if(animations&&!reducedMotion)elapsed+phase else phase
    when(kind){
     "flake","ice-star"->{
@@ -640,7 +643,7 @@ private class WeatherCanvas(service:Service):View(service) {
       disc(c,x+cos(a).toFloat()*s0*.4f,y+sin(a).toFloat()*s0*.4f,s0*.2f,tint,165)
      }
     }
-    "butterfly"->drawMotif(c,"butterfly",x,y,s0*1.8f,t,phase.toInt())
+    "butterfly"->drawMotif(c,"butterfly",x,y,s0*1.35f,t,phase.toInt())
     "prism"->{
      poly(c,tint,145,x,y-s0,x+s0*.75f,y+s0*.6f,x-s0*.75f,y+s0*.6f)
      line(c,x-s0*.8f,y+s0*.5f,x+s0*.8f,y+s0*.5f,Color.WHITE,.7f,155)
@@ -685,11 +688,21 @@ private class WeatherCanvas(service:Service):View(service) {
     "lightning"->poly(c,tint,230,x-s0*.2f,y-s0,
      x+s0*.48f,y-s0*.18f,x+s0*.12f,y-s0*.16f,
      x+s0*.36f,y+s0,x-s0*.44f,y+s0*.08f,x,y)
-    "bat"->drawMotif(c,"bat",x,y,s0*2.5f,t,phase.toInt())
+    "bat"->drawMotif(c,"bat",x,y,s0*1.3f,t,phase.toInt())
     "wisp","flame","candle"->{
-     disc(c,x,y,s0*2.4f,tint,32)
-     poly(c,tint,204,x,y-s0*1.4f,x+s0*.55f,y-s0*.3f,
-      x+s0*.45f,y+s0*.63f,x,y+s0,x-s0*.45f,y+s0*.63f,x-s0*.55f,y-s0*.3f)
+     if(kind=="candle"){
+      rectangle(c,x-s0*.38f,y-s0*.08f,x+s0*.38f,y+s0*1.2f,
+       0xffe8d4c4.toInt(),223)
+      rectangle(c,x-s0*.34f,y+s0*.02f,x-s0*.22f,y+s0*1.14f,
+       secondary,110)
+      line(c,x,y-s0*.04f,x,y-s0*.25f,0xff4b3e35.toInt(),1.5f,215)
+     }else if(kind=="wisp") {
+      // A tapered ghost-light trail, not a circle standing in for its body.
+      line(c,x,y+s0*.5f,x-s0*.5f,y+s0*1.6f,tint,1.5f,95)
+     }
+     if(kind!="flame")disc(c,x,y-s0*.56f,s0*1.25f,tint,15)
+     poly(c,tint,225,x,y-s0*1.45f,x+s0*.58f,y-s0*.34f,
+      x+s0*.4f,y+s0*.5f,x,y+s0*.81f,x-s0*.4f,y+s0*.5f,x-s0*.58f,y-s0*.34f)
     }
     "gift"->{
      rectangle(c,x-s0*.66f,y-s0*.66f,x+s0*.66f,y+s0*.66f,tint,214)
@@ -729,10 +742,17 @@ private class WeatherCanvas(service:Service):View(service) {
      rectangle(c,x-s0*.23f,y-s0*.5f,x+s0*.23f,y+s0*.53f,secondary,210)
     }
     "star"->{
-     for(i in 0..4){
-      val a=i*Math.PI*2/5
-      line(c,x,y,x+cos(a).toFloat()*s0,y+sin(a).toFloat()*s0,tint,1.5f,205)
+     val star=Path()
+     for(i in 0 until 10){
+      val a=i*Math.PI/5-Math.PI/2
+      val radius=if(i%2==0)s0 else s0*.42f
+      val px=x+cos(a).toFloat()*radius
+      val py=y+sin(a).toFloat()*radius
+      if(i==0)star.moveTo(px,py) else star.lineTo(px,py)
      }
+     star.close()
+     paint(tint,220)
+     c.drawPath(star,brush)
     }
     else->{ // Defensive only: tests require all 38 catalog IDs to resolve above.
       line(c,x-s0,y,x+s0,y,tint,1.1f)
@@ -744,16 +764,25 @@ private class WeatherCanvas(service:Service):View(service) {
    // Device QA (1080px Redmi): unscaled organic silhouettes read as dots.
    // The visualScale setting is already included in renderRadius; keep its
    // multiplicative effect without raising particle count, draw rate or density.
+   // A Redmi draws this canvas in real display pixels, not CSS pixels.
+   // The previous 0.8..13px radius made every silhouette appear as a dot.
+   // These are size *floors* for readable shapes, not extra particle emissions.
    val formSize=when(glyph){
-    "petal","maple"->(renderRadius*2.6f).coerceIn(1f,13f)
-    "butterfly","bee","bird"->(renderRadius*2.2f).coerceIn(1f,12f)
-    "seed","grain","needle"->(renderRadius*1.8f).coerceIn(.8f,11f)
-    "fog","leaf-fog","gust","ribbon"->(renderRadius*2.2f).coerceIn(.8f,13f)
-    "firefly","sun-dust","flame","wisp"->(renderRadius*1.7f).coerceIn(.8f,13f)
-    "snow-streak","rain","downpour","lightning"->(renderRadius*1.4f).coerceIn(.8f,11f)
-    "lantern","gift","heart","egg"->(renderRadius*1.9f).coerceIn(.8f,13f)
-    "galaxy","meteor","sparkler"->(renderRadius*1.45f).coerceIn(.8f,11f)
-    else->renderRadius
+    "petal","maple"->(10f+renderRadius*2.6f).coerceIn(12f,29f)
+    "butterfly","bee","bird"->(12f+renderRadius*2.0f).coerceIn(14f,27f)
+    "bat"->(11f+renderRadius*1.9f).coerceIn(13f,28f)
+    "seed","grain","needle"->(6f+renderRadius*1.8f).coerceIn(8f,23f)
+    "fog","leaf-fog","gust","ribbon"->(11f+renderRadius*2.0f).coerceIn(13f,30f)
+    "firefly","sun-dust"->(2.5f+renderRadius*.8f).coerceIn(3.5f,9f)
+    "flame","wisp","candle"->(8f+renderRadius*1.8f).coerceIn(10f,25f)
+    "snow-streak","rain","downpour","drizzle"->(2f+renderRadius*.85f).coerceIn(3f,10f)
+    "lightning"->(12f+renderRadius*2f).coerceIn(14f,28f)
+    "lantern","gift","heart","egg"->(9f+renderRadius*2.0f).coerceIn(11f,28f)
+    "galaxy","meteor","sparkler"->(8f+renderRadius*1.6f).coerceIn(10f,25f)
+    "pollen"->(2.5f+renderRadius*.8f).coerceIn(3.5f,10f)
+    "confetti","prism"->(8f+renderRadius*1.5f).coerceIn(10f,23f)
+    "star","ice-star","flake","ice-shard"->(6f+renderRadius*1.5f).coerceIn(7.5f,20f)
+    else->(5f+renderRadius*1.5f).coerceIn(6f,23f)
    }
    // Organic tumbling/flapping has a real silhouette rotation, not circles
    // oscillating along a generic snowfall trajectory.

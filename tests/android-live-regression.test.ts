@@ -33,7 +33,7 @@ test('Object size affects every native visual glyph, without inflating the parti
 
 test('Android bats and fireflies have distinct high-visibility rendering',()=>{
  assert.match(native,/0xffb5a2d2\.toInt\(\),225/);
- assert.match(native,/"bat"->drawMotif\(c,"bat",x,y,s0\*2\.5f/);
+ assert.match(native,/"bat"->drawMotif\(c,"bat",x,y,s0\*1\.3f/);
  assert.match(native,/"firefly","sun-dust"->\{/);
  assert.match(native,/disc\(c,x,y,s0\*3\.4f,tint,35\)/);
  assert.match(native,/val maxDraw=\(5\*density\)\.toInt\(\)\.coerceIn\(0,5\)/);

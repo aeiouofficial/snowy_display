@@ -143,14 +143,22 @@ function glow(c:CanvasRenderingContext2D,color:string,r:number,strength:number):
   c.fillStyle=g;c.beginPath();c.arc(0,0,r,0,TAU);c.fill();c.restore();
 }
 
+const VISIBLE_SILHOUETTES:ReadonlySet<Glyph>=new Set<Glyph>([
+  'petal','maple','butterfly','bee','bird','bat','heart','egg','gift',
+  'lantern','flame','wisp','candle','crescent','galaxy','prism','confetti'
+]);
+const FINE_PARTICLES:ReadonlySet<Glyph>=new Set<Glyph>([
+  'drizzle','rain','downpour','snow-streak','firefly','sun-dust','pollen'
+]);
+
 /** Distinct trajectory and shape. Called for every visual particle; no generic color-only fallback. */
 export function paintThemeParticle(c:CanvasRenderingContext2D,p:Particle,theme:WeatherTheme,
-  time:number,width:number,height:number,visualScale=1):void {
+  time:number,width:number,height:number,visualScale=1,forcedGlyph?:Glyph,lockedPosition=false):void {
   const fx=effectFor(theme.id);
   const seed=p.mass*12.31+p.radius*15.47;
   const h=hash(seed);
   const secondary=h>.73;
-  const glyph=secondary?fx.companion:fx.glyph;
+  const glyph=forcedGlyph??(secondary?fx.companion:fx.glyph);
   const phase=time*fx.frequency+seed*1.3;
   const amount=p.radius*visualScale*(glyph==='bat'||glyph==='butterfly'||glyph==='bee'?2.6:2);
   const sway=Math.sin(phase)*fx.amplitude;
@@ -163,12 +171,21 @@ export function paintThemeParticle(c:CanvasRenderingContext2D,p:Particle,theme:W
   if(motion==='swing'){y+=Math.cos(phase*.8)*fx.amplitude*.35;}
   if(motion==='dive'){y+=Math.cos(phase)*fx.amplitude;}
   if(motion==='float'){y+=Math.sin(phase*.75)*fx.amplitude*.32;}
-  x=((x+40)%(width+80)+(width+80))%(width+80)-40;
-  y=((y+35)%(height+70)+(height+70))%(height+70)-35;
-  const r=Math.min(13,Math.max(.9,amount*(glyph==='star'?.5:1)));
+  if(lockedPosition){x=p.x;y=p.y;}
+  else{
+    x=((x+40)%(width+80)+(width+80))%(width+80)-40;
+    y=((y+35)%(height+70)+(height+70))%(height+70)-35;
+  }
+  // This icon-scale floor prevents leaves, bats and petals becoming glow dots.
+  // Actual rain and natural fireflies remain appropriately fine-grained.
+  const silhouettes=VISIBLE_SILHOUETTES;
+  const fine=FINE_PARTICLES;
+  const minimum=fine.has(glyph)?2.2:silhouettes.has(glyph)?9:5;
+  const maximum=fine.has(glyph)?11:25;
+  const r=Math.min(maximum,Math.max(minimum,amount*(glyph==='star'?.65:1)));
   c.save();c.translate(x,y);
   c.globalAlpha=Math.min(1,Math.max(.14,p.opacity));
-  c.rotate((motion==='swing'||motion==='blizzard'?phase*.47:motion==='orbit'?phase*.1:0)+fx.skew*Math.PI/180);
+  c.rotate(lockedPosition?0:(motion==='swing'||motion==='blizzard'?phase*.47:motion==='orbit'?phase*.1:0)+fx.skew*Math.PI/180);
   c.fillStyle=secondary?theme.secondary:theme.color;
   c.strokeStyle=secondary?theme.secondary:theme.color;
   c.lineWidth=Math.max(.7,r*.13);
@@ -225,6 +242,22 @@ export function paintThemeParticle(c:CanvasRenderingContext2D,p:Particle,theme:W
     default:{const never:never=glyph;throw new Error('Unimplemented glyph '+never);}
   }
   c.restore();
+}
+
+/** Actual theme-specific icon art in every catalog card; no shared category emoji. */
+export function paintThemeThumbnail(canvas:HTMLCanvasElement,theme:WeatherTheme):void {
+  canvas.width=72;
+  canvas.height=64;
+  const ctx=canvas.getContext('2d',{alpha:true});
+  if(!ctx)return;
+  const {glyph,companion}=effectFor(theme.id);
+  const particle=(x:number,y:number,radius:number):Particle=>({
+    x,y,radius,opacity:1,mass:1.4,vx:0,vy:0
+  });
+  ctx.clearRect(0,0,72,64);
+  // Companion behind the primary helps identify visually adjacent effects.
+  paintThemeParticle(ctx,particle(56,17,3.6),theme,0,72,64,.85,companion,true);
+  paintThemeParticle(ctx,particle(34,34,6.7),theme,0,72,64,1.3,glyph,true);
 }
 
 /** Low-cost atmospheric signature layer drawn once per frame, not per particle. */

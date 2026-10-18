@@ -14,9 +14,9 @@ test('category and query changes reset only the Scenes inner scroll position',()
 });
 
 test('native organic shapes use legible device-scale silhouettes with real flutter rotation',()=>{
-  assert.match(native,/"petal","maple"->\(renderRadius\*2\.6f\)\.coerceIn\(1f,13f\)/);
-  assert.match(native,/"butterfly","bee","bird"->\(renderRadius\*2\.2f\)\.coerceIn\(1f,12f\)/);
-  assert.match(native,/"firefly","sun-dust","flame","wisp"->\(renderRadius\*1\.7f\)/);
+  assert.match(native,/"petal","maple"->\(10f\+renderRadius\*2\.6f\)\.coerceIn\(12f,29f\)/);
+  assert.match(native,/"butterfly","bee","bird"->\(12f\+renderRadius\*2\.0f\)\.coerceIn\(14f,27f\)/);
+  assert.match(native,/"firefly","sun-dust"->\(2\.5f\+renderRadius\*\.8f\)/);
   assert.match(native,/"petal"->sin\(elapsed\*1\.6f\+p\.phase\)\*62f/);
   assert.match(native,/"maple","needle"->sin\(elapsed\*1\.2f\+p\.phase\)\*83f/);
   assert.match(native,/c\.rotate\(rotation,p\.x,p\.y\)/);

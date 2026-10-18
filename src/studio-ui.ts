@@ -1,12 +1,9 @@
 import { THEMES, type WeatherTheme } from './themes.ts';
+import { paintThemeThumbnail } from './theme-effects.ts';
 import type { AppSettings } from './settings.ts';
 
 type Patch=(next:Partial<AppSettings>,persist?:boolean)=>void;
 const groups=['All','Winter','Spring','Summer','Autumn','Weather','Events','Atmosphere'];
-const symbols:Record<string,string>={
- Winter:'❄',Spring:'✿',Summer:'☀',Autumn:'❧',
- Weather:'☁',Events:'✦',Atmosphere:'◌',
-};
 const byId=(id:string)=>document.getElementById(id)!;
 export function installStudioUI(patch:Patch): (settings:AppSettings,theme:WeatherTheme)=>void{
  const gallery=byId('theme-gallery');
@@ -78,8 +75,15 @@ export function installStudioUI(patch:Patch): (settings:AppSettings,theme:Weathe
    const art=document.createElement('span');art.className='scene-art';
    art.dataset.category=theme.category.toLowerCase();
    art.style.setProperty('--scene-accent',theme.accent);
-   const symbol=document.createElement('span');symbol.textContent=symbols[theme.category]||'✧';
-   art.appendChild(symbol);
+   // The tile must depict the same geometry as the running effect.
+   const thumbnail=document.createElement('canvas');
+   thumbnail.className='theme-glyph-thumbnail';
+   thumbnail.setAttribute('aria-hidden','true');
+   thumbnail.style.width='100%';
+   thumbnail.style.height='100%';
+   thumbnail.style.display='block';
+   paintThemeThumbnail(thumbnail,theme);
+   art.appendChild(thumbnail);
    const details=document.createElement('span');details.className='scene-card-copy';
    const title=document.createElement('strong');title.textContent=theme.name;
    const sub=document.createElement('small');sub.textContent=theme.category;
