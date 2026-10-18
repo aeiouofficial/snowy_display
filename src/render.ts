@@ -2,6 +2,7 @@ import type { Particle, SnowEngine, Surface } from './physics.ts';
 import { resolveTheme, type WeatherTheme } from './themes.ts';
 import type { Viewport } from './desktop-world.ts';
 import {renderSeasonalScenery,drawSnowplow,type SceneVisualOptions} from './seasonal-render.ts';
+import {paintThemeParticle,paintThemeAtmosphere,paintThemeFeaturedEffects} from './theme-effects.ts';
 
 export type SnowScene = ReturnType<SnowEngine['snapshot']>;
 export function drawSnow(ctx:CanvasRenderingContext2D, engine:SnowEngine, maskWindows=false, themeId='winter-snow',
@@ -16,8 +17,16 @@ export function drawScene(ctx:CanvasRenderingContext2D, scene:SnowScene, width:n
   const visible=(x:number,y:number,r=8) => !viewport ||
     x+r>=viewport.x && x-r<=viewport.x+viewport.width &&
     y+r>=viewport.y && y-r<=viewport.y+viewport.height;
+  if(visuals.showSceneObjects!==false && (visuals.decorationDensity??.72)>0)
+    paintThemeAtmosphere(ctx,theme.id,width,height,visuals.reduceMotion===true||visuals.animationsEnabled===false?0:scene.time);
   renderSeasonalScenery(ctx,theme.id,width,height,scene.time,visuals,viewport);
-  for(const p of scene.flakes) if(visible(p.x,p.y,p.radius*2)) drawEffect(ctx,p,theme);
+  for(const p of scene.flakes) if(visible(p.x,p.y,p.radius*2)) paintThemeParticle(ctx,p,theme,scene.time,width,height,visuals.visualScale??1);
+  // These are actual, animated theme actors, not glowing placeholder circles.
+  // Keep several recognizable silhouettes in every small preview regardless
+  // of the shared physics engine's instantaneous particle radius distribution.
+  paintThemeFeaturedEffects(ctx,theme,
+    visuals.reduceMotion===true||visuals.animationsEnabled===false?0:scene.time,
+    width,height,visuals.visualScale??1);
   if(theme.accumulating) {
     for(const p of scene.clumps) if(visible(p.x,p.y,p.radius*3)) drawClump(ctx,p);
     if(maskWindows) for(const s of scene.surfaces) ctx.clearRect(s.x,s.y+2,s.width,s.height-2);
@@ -95,76 +104,6 @@ export function drawScene(ctx:CanvasRenderingContext2D, scene:SnowScene, width:n
     ctx.arc(pulse.x,pulse.y,pulse.radius*(.15+.85*progress),0,Math.PI*2);
     ctx.stroke();
     ctx.restore();
-  }
-}
-function drawEffect(ctx:CanvasRenderingContext2D,p:Particle,t:WeatherTheme):void {
-  if(t.particle==='snow'){drawFlake(ctx,p);return;}
-  ctx.save();
-  const size=p.radius;
-  ctx.globalAlpha=p.opacity;
-  const twinkle=Math.sin((p.x+p.y)*.015);
-  switch(t.particle) {
-    case 'rain':
-      ctx.strokeStyle=t.color;ctx.lineWidth=Math.max(.65,size*.7);
-      ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.vx*.024,p.y-Math.min(25,7+size*9));ctx.stroke();
-      break;
-    case 'petals':
-    case 'leaves':
-      ctx.translate(p.x,p.y);ctx.rotate((p.x+p.y)*.02);
-      ctx.fillStyle=t.particle==='petals'?(twinkle>0?t.color:t.secondary):(twinkle>0?t.color:t.secondary);
-      ctx.beginPath();ctx.ellipse(0,0,size*1.35,size*.67,.3,0,Math.PI*2);ctx.fill();
-      if(t.particle==='leaves') {
-        ctx.strokeStyle='rgba(65,38,20,.42)';ctx.beginPath();
-        ctx.moveTo(-size*.7,0);ctx.lineTo(size*.7,0);ctx.stroke();
-      }
-      break;
-    case 'confetti':
-      ctx.translate(p.x,p.y);ctx.rotate((p.x+p.y)*.017);
-      ctx.fillStyle=twinkle>0?t.color:t.secondary;
-      ctx.fillRect(-size/2,-size,size*1.2,size*1.7);
-      break;
-    case 'fireflies':
-    case 'embers': {
-      const r=size*(t.particle==='fireflies'?3.5:2.1);
-      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r);
-      g.addColorStop(0,t.color);g.addColorStop(.25,t.secondary);
-      g.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();
-      break;
-    }
-    case 'stars': {
-      ctx.translate(p.x,p.y);ctx.fillStyle=twinkle>0?t.color:t.secondary;
-      ctx.beginPath();
-      const outer=size*1.5,inner=outer*.38;
-      for(let i=0;i<10;i++){
-        const angle=i*Math.PI/5-Math.PI/2,r=i%2?inner:outer;
-        if(i===0)ctx.moveTo(Math.cos(angle)*r,Math.sin(angle)*r);
-        else ctx.lineTo(Math.cos(angle)*r,Math.sin(angle)*r);
-      }
-      ctx.closePath();ctx.fill();break;
-    }
-    case 'bats':
-      ctx.translate(p.x,p.y);ctx.rotate(Math.sin(p.x*.02)*.23);
-      ctx.fillStyle=t.color;ctx.beginPath();
-      ctx.moveTo(-size*2,0);ctx.quadraticCurveTo(-size*1.15,-size*1.75,0,-size*.1);
-      ctx.quadraticCurveTo(size*1.15,-size*1.75,size*2,0);
-      ctx.quadraticCurveTo(size*.8,size*.32,0,size*.5);
-      ctx.quadraticCurveTo(-size*.8,size*.32,-size*2,0);
-      ctx.fill();break;
-  }
-  ctx.restore();
-}
-function drawFlake(ctx: CanvasRenderingContext2D, p: Particle): void {
-  if (p.radius > 1.9) {
-    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius * 1.5);
-    grad.addColorStop(0, `rgba(255, 255, 255, ${p.opacity.toFixed(2)})`);
-    grad.addColorStop(0.55, `rgba(235, 246, 255, ${(p.opacity * 0.72).toFixed(2)})`);
-    grad.addColorStop(1, 'rgba(220, 240, 255, 0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();ctx.arc(p.x, p.y, p.radius * 1.5, 0, Math.PI * 2);ctx.fill();
-  } else {
-    ctx.fillStyle = `rgba(240, 249, 255, ${p.opacity.toFixed(2)})`;
-    ctx.beginPath();ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);ctx.fill();
   }
 }
 function drawClump(ctx: CanvasRenderingContext2D, p: Particle): void {

@@ -16,3 +16,5 @@ src-tauri/gen/
 .build/
 *.code-workspace
 node_modules
+__pycache__/
+*.pyc

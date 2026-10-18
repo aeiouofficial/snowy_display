@@ -1,7 +1,7 @@
 name: Android APK
 on:
   push:
-    branches: ['feat/cross-platform-snow-physics-alpha']
+    branches: ['feat/cross-platform-snow-physics-alpha', 'feat/android-native-overlay-mobile-layout']
     paths:
       - '.github/workflows/android-apk.yml'
       - 'src/**'
@@ -52,6 +52,8 @@ jobs:
       - run: npm run check
       - name: Generate Android project noninteractively
         run: npm run android:init -- --ci --skip-targets-install
+      - name: Integrate native Android weather overlay
+        run: python3 scripts/prepare_android_native.py
       - name: Build unsigned APK
         run: npm run android:apk -- --ci
       - uses: actions/upload-artifact@v4

@@ -10,7 +10,7 @@ Open-source snow accumulation on real desktop application windows. Snow builds u
 | macOS | Yes | CoreGraphics window list | Tauri transparent click-through overlay (unverified on macOS hardware) |
 | Linux X11 | Yes | EWMH `_NET_CLIENT_LIST_STACKING` | Tauri transparent click-through overlay (unverified on Linux X11 hardware) |
 | Linux Wayland | App builds | **Blocked by compositor restrictions** | In-app preview only; no foreign-window overlays |
-| Android | Tauri 2 mobile source | Not yet | In-app snowfall preview; `SYSTEM_ALERT_WINDOW` integration not yet implemented |
+| Android | Tauri 2 mobile source | Not supported (Android application sandbox) | Native click-through foreground-service weather overlay; one grant for Snowy Display, not for every underlying app |
 | iOS (future) | Tauri 2 mobile source | Not supported by sandbox | In-app effects only; no arbitrary system-wide overlay |
 
 **CI: frontend and Windows/Linux/macOS native cargo checks pass (4/4).** Android APK builds run on feature-branch source changes or via manual workflow dispatch; still unverified until an artifact is produced.
@@ -70,7 +70,12 @@ npm run dev:web    # Browser-only settings and draggable physics preview
 
 The app acquires a system-level single-instance lock before creating any windows; a second launch exits without opening duplicate controls or overlays. When started it places transparent, non-focusable, click-through overlays over detected monitors. The controls open with the first instance; closing them hides them to the tray. **System tray > Show controls** reopens them. A second app launch is blocked before Tauri creates any additional windows. Overlay shutdown is through **system tray > Quit**. No new PowerShell/CMD windows are launched by the application.
 
-### Android / iOS future path
+### Android overlay permission and iOS future path
+
+On Android, Snowy Display itself needs **one** `Display over other apps` permission. Grant it once when prompted; weather then draws over other eligible applications without configuring them individually. Android 11 and newer deliberately show the top-level list of apps for this permission; **select only Snowy Display**. Returning to Snowy Display resumes the pending overlay start automatically. This permission cannot be silently granted or bulk-applied to other apps. Secure system screens may still restrict third-party overlays. The Android renderer draws scenery and screen-bottom accumulation; unlike desktop builds, it cannot inspect or accumulate on foreign applications' window frames.
+
+The in-app preview is accessible without granting this permission. For development and installation, see the Android build workflow and signing instructions below.
+
 
 ```bash
 npm run android:init
